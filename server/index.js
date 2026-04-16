@@ -166,50 +166,81 @@ app.delete('/api/logs/:id', (req, res) => {
 // --- Projects ---
 
 app.get('/api/users/:id/projects', (req, res) => {
-  const projects = db.prepare(`
-    SELECT p.*,
-           COALESCE(SUM(l.hours), 0) AS hours_logged
-    FROM projects p
-    LEFT JOIN hour_logs l ON l.user_id = p.user_id AND l.id IN (
-      SELECT MAX(id) FROM hour_logs GROUP BY user_id
-    )
-    WHERE p.user_id = ?
-    GROUP BY p.id
-    ORDER BY p.archived ASC, p.created_at DESC
-  `).all(req.params.id);
+  try {
+    const projects = db.prepare(`
+      SELECT p.* FROM projects p
+      WHERE p.user_id = ?
+      ORDER BY p.archived ASC, p.created_at DESC
+    `).all(req.params.id);
 
-  res.json(projects);
+    // Calculate hours_logged for each project by summing logs
+    const enrichedProjects = projects.map(project => {
+      const logResult = db.prepare(`
+        SELECT COALESCE(SUM(hours), 0) AS hours_logged
+        FROM hour_logs
+        WHERE user_id = ?
+      `).get(req.params.id);
+      
+      return {
+        ...project,
+        hours_logged: logResult.hours_logged || 0
+      };
+    });
+
+    res.json(enrichedProjects);
+  } catch (err) {
+    console.error('Error fetching projects:', err);
+    res.status(500).json({ error: 'Failed to fetch projects' });
+  }
 });
 
 app.post('/api/users/:id/projects', (req, res) => {
-  const { description, tlu_count, hours_per_tlu, total_hours } = req.body;
+  try {
+    const { description, tlu_count, hours_per_tlu, total_hours } = req.body;
 
-  if (!description || tlu_count == null || hours_per_tlu == null) {
-    return res.status(400).json({ error: 'description, tlu_count, and hours_per_tlu are required' });
+    if (!description || tlu_count == null || hours_per_tlu == null) {
+      return res.status(400).json({ error: 'description, tlu_count, and hours_per_tlu are required' });
+    }
+
+    const tluNum = parseFloat(tlu_count);
+    const hptNum = parseFloat(hours_per_tlu);
+    const totalNum = parseFloat(total_hours);
+
+    if (isNaN(tluNum) || tluNum <= 0 || isNaN(hptNum) || hptNum <= 0) {
+      return res.status(400).json({ error: 'TLU count and hours per TLU must be positive numbers' });
+    }
+
+    if (isNaN(totalNum) || totalNum <= 0) {
+      return res.status(400).json({ error: 'Total hours must be a positive number' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO projects (user_id, description, tlu_count, hours_per_tlu, total_hours)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(req.params.id, description.trim(), tluNum, hptNum, totalNum);
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(project);
+  } catch (err) {
+    console.error('Error creating project:', err);
+    res.status(500).json({ error: 'Failed to create project: ' + err.message });
   }
-
-  if (tlu_count <= 0 || hours_per_tlu <= 0) {
-    return res.status(400).json({ error: 'TLU count and hours per TLU must be positive' });
-  }
-
-  const result = db.prepare(`
-    INSERT INTO projects (user_id, description, tlu_count, hours_per_tlu, total_hours)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(req.params.id, description.trim(), tlu_count, hours_per_tlu, total_hours);
-
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(project);
 });
 
 app.put('/api/projects/:id/archive', (req, res) => {
-  const result = db.prepare('UPDATE projects SET archived = 1 WHERE id = ?').run(req.params.id);
+  try {
+    const result = db.prepare('UPDATE projects SET archived = 1 WHERE id = ?').run(req.params.id);
 
-  if (result.changes === 0) {
-    return res.status(404).json({ error: 'Project not found' });
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+    res.json(project);
+  } catch (err) {
+    console.error('Error archiving project:', err);
+    res.status(500).json({ error: 'Failed to archive project' });
   }
-
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
-  res.json(project);
 });
 
 // --- Export CSV ---

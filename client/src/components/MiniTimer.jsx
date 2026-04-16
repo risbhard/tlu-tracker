@@ -1,348 +1,255 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import './mini-timer.css';
 
 export default function MiniTimer() {
   const [timerState, setTimerState] = useState({
     running: false,
-    project: null,
-    elapsed: 0,
+    paused: false,
+    projectId: null,
+    userId: null,
+    elapsedMs: 0,
   });
 
-  const [projects, setProjects] = useState([
-    'Curriculum Review',
-    'PD Day Planning',
-    'Program Assessment',
-    'Committee Work',
-    'Research Project',
-  ]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [displayElapsed, setDisplayElapsed] = useState(0);
 
-  const [selectedProject, setSelectedProject] = useState(projects[0]);
-  const [idleWarning, setIdleWarning] = useState(null);
-  const [reconciliation, setReconciliation] = useState(null);
-  const [customAmount, setCustomAmount] = useState({ hours: 0, minutes: 0 });
-  const [reconciliationOption, setReconciliationOption] = useState('recommended');
-
-  const elapsedIntervalRef = useRef(null);
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
-
-  // Initialize
-  useEffect(() => {
-    const initializeTimer = async () => {
-      if (window.electronAPI) {
-        const projects = await window.electronAPI.timer.getProjects();
-        setProjects(projects);
-        setSelectedProject(projects[0]);
-
-        const state = await window.electronAPI.timer.getState();
-        setTimerState(state);
-
-        // Listen to state changes
-        window.electronAPI.timer.onStateChanged((state) => {
-          setTimerState(state);
-        });
-
-        // Listen to idle warnings
-        window.electronAPI.timer.onIdleWarning((data) => {
-          setIdleWarning(Math.floor(data.idleTime / 60)); // Convert to minutes
-        });
-
-        // Listen to reconcile events
-        window.electronAPI.timer.onReconcile((data) => {
-          setReconciliation(data);
-        });
-      }
-    };
-
-    initializeTimer();
-  }, []);
-
-  // Update elapsed time display every second
-  useEffect(() => {
-    if (timerState.running) {
-      elapsedIntervalRef.current = setInterval(() => {
-        setTimerState((prev) => ({
-          ...prev,
-          elapsed: prev.elapsed + 1000,
-        }));
-      }, 1000);
-    }
-
-    return () => {
-      if (elapsedIntervalRef.current) {
-        clearInterval(elapsedIntervalRef.current);
-      }
-    };
-  }, [timerState.running]);
-
-  const handleStartStop = async () => {
-    if (timerState.running) {
-      await window.electronAPI.timer.stop();
-    } else {
-      await window.electronAPI.timer.start(selectedProject);
-    }
-  };
-
-  const handleIdleWarningResponse = async (stillWorking) => {
-    if (stillWorking) {
-      setIdleWarning(null);
-    } else {
-      await window.electronAPI.timer.pause();
-      setIdleWarning(null);
-    }
-  };
-
-  const handleReconciliationConfirm = async () => {
-    let amount = 0;
-
-    if (reconciliationOption === 'recommended') {
-      amount = reconciliation.lockDuration || reconciliation.suspendDuration;
-    } else if (reconciliationOption === 'custom') {
-      amount = (customAmount.hours * 3600 + customAmount.minutes * 60) * 1000;
-    } else {
-      // Discard
-      amount = 0;
-    }
-
-    await window.electronAPI.timer.reconcile({
-      amount,
-      unit: 'ms',
-    });
-
-    setReconciliation(null);
-    setReconciliationOption('recommended');
-    setCustomAmount({ hours: 0, minutes: 0 });
-  };
-
-  const handleDragStart = (e) => {
-    dragOffsetRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-    };
-  };
-
-  const handleExpandClick = async () => {
-    await window.electronAPI.app.openMainWindow();
-  };
-
+  // Format elapsed time as HH:MM:SS
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds
-      .toString()
-      .padStart(2, '0')}`;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const statusDot = timerState.running ? '#E31B54' : '#888888';
+  // Initialize: get user ID and load projects
+  useEffect(() => {
+    const initializeUser = () => {
+      // Try to get user ID from localStorage (set when user logs in to main app)
+      const storedUserId = localStorage.getItem('userId');
+      if (storedUserId) {
+        setUserId(parseInt(storedUserId, 10));
+      } else {
+        console.warn('No user ID found. Mini timer may not work properly.');
+        // For now, use a default for testing
+        setUserId(1);
+      }
+    };
+
+    initializeUser();
+
+    // Listen for timer state changes
+    if (window.electronAPI?.timer?.onStateChanged) {
+      window.electronAPI.timer.onStateChanged((state) => {
+        setTimerState(state);
+        setDisplayElapsed(state.elapsedMs || 0);
+      });
+    }
+
+    return () => {
+      // Cleanup listeners if needed
+    };
+  }, []);
+
+  // Load active projects when userId changes
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadProjects = async () => {
+      try {
+        setLoading(true);
+        const activeProjects = await window.electronAPI?.projects?.getActive(userId);
+        setProjects(activeProjects || []);
+        if (activeProjects && activeProjects.length > 0) {
+          setSelectedProjectId(activeProjects[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        setProjects([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProjects();
+  }, [userId]);
+
+  // Update elapsed time display every second when timer is running
+  useEffect(() => {
+    if (!timerState.running) return;
+
+    const interval = setInterval(() => {
+      setDisplayElapsed((prev) => prev + 1000);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerState.running]);
+
+  const handleStartTimer = async () => {
+    if (!selectedProjectId || !userId) {
+      alert('Please select a project first');
+      return;
+    }
+
+    try {
+      const state = await window.electronAPI?.timer?.start(selectedProjectId, userId);
+      setTimerState(state);
+      setDisplayElapsed(state.elapsedMs || 0);
+    } catch (error) {
+      console.error('Failed to start timer:', error);
+    }
+  };
+
+  const handlePauseTimer = async () => {
+    try {
+      const state = await window.electronAPI?.timer?.pause();
+      setTimerState(state);
+      setDisplayElapsed(state.elapsedMs || 0);
+    } catch (error) {
+      console.error('Failed to pause timer:', error);
+    }
+  };
+
+  const handleResumeTimer = async () => {
+    try {
+      const state = await window.electronAPI?.timer?.resume();
+      setTimerState(state);
+      setDisplayElapsed(state.elapsedMs || 0);
+    } catch (error) {
+      console.error('Failed to resume timer:', error);
+    }
+  };
+
+  const handleStopTimer = async () => {
+    try {
+      const state = await window.electronAPI?.timer?.stop();
+      setTimerState(state);
+      setDisplayElapsed(0);
+      setSelectedProjectId(projects.length > 0 ? projects[0].id : null);
+    } catch (error) {
+      console.error('Failed to stop timer:', error);
+    }
+  };
+
+  const handleProjectChange = (e) => {
+    setSelectedProjectId(parseInt(e.target.value, 10));
+  };
+
+  const getButtonStyle = () => {
+    if (timerState.running) {
+      return { background: '#E31B54' }; // Magenta when running
+    } else if (timerState.paused) {
+      return { background: '#d97706' }; // Amber when paused
+    } else {
+      return { background: '#888' }; // Grey when idle
+    }
+  };
+
+  const getButtonLabel = () => {
+    if (timerState.running) {
+      return 'PAUSE';
+    } else if (timerState.paused) {
+      return 'RESUME';
+    } else {
+      return 'START';
+    }
+  };
+
+  const getStatusDot = () => {
+    return timerState.running ? '#E31B54' : '#888';
+  };
+
+  const getSelectedProjectName = () => {
+    if (!selectedProjectId) return 'Select Project';
+    const project = projects.find((p) => p.id === selectedProjectId);
+    return project ? project.description : 'Select Project';
+  };
 
   return (
-    <div className="mini-timer-container">
-      {/* Draggable Title Bar */}
-      <div
-        className="mini-timer-titlebar"
-        onMouseDown={handleDragStart}
-      >
-        <div className="titlebar-content">
-          <span className="status-dot" style={{ backgroundColor: statusDot }} />
-          <span className="titlebar-text">TLU Tracker</span>
+    <div className="mini-timer-window">
+      {/* Title Bar - Draggable */}
+      <div className="mini-timer-title-bar" style={{ WebkitAppRegion: 'drag' }}>
+        <div className="title-bar-left">
+          <div
+            className="status-dot"
+            style={{ background: getStatusDot() }}
+          ></div>
+          <span className="title-text">TLU Tracker</span>
+        </div>
+        <div className="title-bar-right" style={{ WebkitAppRegion: 'no-drag' }}>
+          <button
+            className="title-btn"
+            onClick={() => window.electronAPI?.app?.minimizeMiniTimer()}
+            title="Minimize"
+          >
+            −
+          </button>
+          <button
+            className="title-btn"
+            onClick={() => window.close()}
+            title="Close"
+          >
+            ×
+          </button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="mini-timer-content">
-        {/* Project Selector */}
-        <div className="mini-timer-section">
-          <label className="mini-timer-label">Project</label>
+      {/* Main Widget Body */}
+      <div className="mini-timer-body">
+        {/* Project Dropdown */}
+        <div className="project-selector">
           <select
-            className="mini-timer-select"
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            disabled={timerState.running}
+            value={selectedProjectId || ''}
+            onChange={handleProjectChange}
+            disabled={timerState.running || loading}
+            className="project-dropdown"
           >
+            <option value="">
+              {loading ? 'Loading projects...' : 'Select Project'}
+            </option>
             {projects.map((project) => (
-              <option key={project} value={project}>
-                {project}
+              <option key={project.id} value={project.id}>
+                {project.description}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Elapsed Time Display */}
-        <div className="mini-timer-elapsed">
-          {formatTime(timerState.elapsed)}
+        {/* Timer Display */}
+        <div className="timer-display">
+          <span className="timer-value">{formatTime(displayElapsed)}</span>
         </div>
 
-        {/* Control Buttons */}
-        <div className="mini-timer-buttons">
+        {/* Control Button */}
+        <div className="control-button-container">
           <button
-            className={`mini-timer-btn primary ${
-              timerState.running ? 'stop' : 'start'
-            }`}
-            onClick={handleStartStop}
+            className="control-button"
+            style={getButtonStyle()}
+            onClick={() => {
+              if (timerState.running) {
+                handlePauseTimer();
+              } else if (timerState.paused) {
+                handleResumeTimer();
+              } else {
+                handleStartTimer();
+              }
+            }}
+            title={getButtonLabel()}
           >
-            {timerState.running ? 'Stop' : 'Start'}
-          </button>
-          <button
-            className="mini-timer-btn secondary"
-            onClick={handleExpandClick}
-          >
-            Expand
+            {getButtonLabel()}
           </button>
         </div>
+
+        {/* Stop & Save Button */}
+        {(timerState.running || timerState.paused) && (
+          <button className="stop-save-btn" onClick={handleStopTimer}>
+            Stop & Save
+          </button>
+        )}
       </div>
-
-      {/* Idle Warning Overlay */}
-      {idleWarning && (
-        <div className="mini-timer-overlay">
-          <div className="mini-timer-dialog">
-            <h3>Still working?</h3>
-            <p className="idle-time">
-              You've been idle for {idleWarning} minute
-              {idleWarning !== 1 ? 's' : ''}
-            </p>
-            <p className="idle-note">
-              This won't appear during Zoom/Teams calls.
-            </p>
-            <div className="dialog-buttons">
-              <button
-                className="btn-yes"
-                onClick={() => handleIdleWarningResponse(true)}
-              >
-                Yes, still working
-              </button>
-              <button
-                className="btn-pause"
-                onClick={() => handleIdleWarningResponse(false)}
-              >
-                Pause timer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reconciliation Dialog */}
-      {reconciliation && (
-        <div className="mini-timer-overlay">
-          <div className="mini-timer-dialog reconciliation">
-            <h3>Session Reconciliation</h3>
-            <div className="reconciliation-info">
-              <p>
-                <strong>Project:</strong> {reconciliation.project}
-              </p>
-              {reconciliation.lockTime && (
-                <>
-                  <p>
-                    <strong>Work time:</strong>{' '}
-                    {formatTime(reconciliation.lockDuration || 0)}
-                  </p>
-                  <p className="text-sm">
-                    Worked until screen locked at{' '}
-                    {new Date(reconciliation.lockTime).toLocaleTimeString()}
-                  </p>
-                </>
-              )}
-              {reconciliation.suspendTime && (
-                <>
-                  <p>
-                    <strong>Work time:</strong>{' '}
-                    {formatTime(reconciliation.suspendDuration || 0)}
-                  </p>
-                  <p className="text-sm">
-                    System suspended at{' '}
-                    {new Date(reconciliation.suspendTime).toLocaleTimeString()}
-                  </p>
-                </>
-              )}
-              <p className="text-sm">
-                Resumed at {new Date(reconciliation.resumeTime || reconciliation.unlockTime).toLocaleTimeString()}
-              </p>
-            </div>
-
-            <div className="reconciliation-options">
-              <label className="option">
-                <input
-                  type="radio"
-                  name="reconciliation"
-                  value="recommended"
-                  checked={reconciliationOption === 'recommended'}
-                  onChange={(e) => setReconciliationOption(e.target.value)}
-                />
-                <span>
-                  Log {Math.floor((reconciliation.lockDuration || reconciliation.suspendDuration) / 3600000)}h{' '}
-                  {Math.floor(
-                    ((reconciliation.lockDuration || reconciliation.suspendDuration) % 3600000) / 60000
-                  )}
-                  m (until lock)
-                </span>
-              </label>
-
-              <label className="option">
-                <input
-                  type="radio"
-                  name="reconciliation"
-                  value="custom"
-                  checked={reconciliationOption === 'custom'}
-                  onChange={(e) => setReconciliationOption(e.target.value)}
-                />
-                <span>Custom amount</span>
-              </label>
-
-              {reconciliationOption === 'custom' && (
-                <div className="custom-amount">
-                  <input
-                    type="number"
-                    min="0"
-                    max="24"
-                    value={customAmount.hours}
-                    onChange={(e) =>
-                      setCustomAmount({
-                        ...customAmount,
-                        hours: parseInt(e.target.value, 10) || 0,
-                      })
-                    }
-                    placeholder="Hours"
-                  />
-                  <span>h</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="59"
-                    value={customAmount.minutes}
-                    onChange={(e) =>
-                      setCustomAmount({
-                        ...customAmount,
-                        minutes: parseInt(e.target.value, 10) || 0,
-                      })
-                    }
-                    placeholder="Minutes"
-                  />
-                  <span>m</span>
-                </div>
-              )}
-
-              <label className="option">
-                <input
-                  type="radio"
-                  name="reconciliation"
-                  value="discard"
-                  checked={reconciliationOption === 'discard'}
-                  onChange={(e) => setReconciliationOption(e.target.value)}
-                />
-                <span>Discard session</span>
-              </label>
-            </div>
-
-            <button
-              className="btn-confirm"
-              onClick={handleReconciliationConfirm}
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

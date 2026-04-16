@@ -12,6 +12,15 @@ const path = require('path');
 const { execSync } = require('child_process');
 const fs = require('fs');
 
+// Get the database module path
+let db;
+try {
+  db = require(path.join(__dirname, '..', 'server', 'db'));
+} catch (error) {
+  console.warn('Database module not available in Electron context:', error.message);
+  db = null;
+}
+
 // Check if running in development mode
 const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
 
@@ -23,9 +32,12 @@ if (require('electron-squirrel-startup')) {
 // Timer state lives in the main process
 let timerState = {
   running: false,
-  project: null,
+  paused: false,
+  projectId: null,
+  userId: null,
   startTime: null,
-  pausedTime: 0, // accumulated paused time in ms
+  pausedDurationMs: 0, // accumulated paused time in ms
+  elapsedMs: 0,
   lockTime: null, // when screen was locked
   suspendTime: null, // when system suspended
 };
@@ -83,9 +95,9 @@ function createMiniTimerWindow() {
 
   miniTimerWindow = new BrowserWindow({
     width: 280,
-    height: 200,
-    x: screenWidth - 280 - 20,
-    y: screenHeight - 200 - 20,
+    height: 180,
+    x: screenWidth - 300,
+    y: screenHeight - 200,
     alwaysOnTop: true,
     frame: false,
     resizable: false,
@@ -219,35 +231,69 @@ function createTray() {
 // ============================================================================
 
 function getTimerState() {
+  let elapsed = 0;
+  if (timerState.running && timerState.startTime) {
+    elapsed = Date.now() - timerState.startTime + timerState.pausedDurationMs;
+  } else if (!timerState.running && timerState.pausedDurationMs > 0) {
+    elapsed = timerState.pausedDurationMs;
+  }
+  
   return {
-    ...timerState,
-    elapsed: timerState.running && timerState.startTime
-      ? Date.now() - timerState.startTime - timerState.pausedTime
-      : timerState.pausedTime,
+    running: timerState.running,
+    paused: timerState.paused,
+    projectId: timerState.projectId,
+    userId: timerState.userId,
+    startTime: timerState.startTime,
+    elapsedMs: elapsed,
   };
 }
 
-function startTimer(project) {
+function startTimer(projectId, userId) {
   if (timerState.running) return;
 
   timerState.running = true;
-  timerState.project = project;
+  timerState.paused = false;
+  timerState.projectId = projectId;
+  timerState.userId = userId;
   timerState.startTime = Date.now();
-  timerState.pausedTime = 0;
+  timerState.pausedDurationMs = 0;
   timerState.lockTime = null;
   timerState.suspendTime = null;
 
-  idleWarningShown = false; // Reset idle warning when timer starts
+  idleWarningShown = false;
 
   broadcastTimerState();
 }
 
 function stopTimer() {
+  if (!timerState.running && !timerState.paused) return;
+
+  const elapsed = timerState.running && timerState.startTime
+    ? Date.now() - timerState.startTime + timerState.pausedDurationMs
+    : timerState.pausedDurationMs;
+
+  const endTime = new Date().toISOString();
+  const startTime = new Date(Date.now() - elapsed).toISOString();
+  const durationSeconds = elapsed / 1000;
+
+  // Save to database if we have projectId, userId, and db is available
+  if (timerState.projectId && timerState.userId && db) {
+    try {
+      db.prepare(`
+        INSERT INTO time_entries (project_id, user_id, start_time, end_time, duration_seconds, notes)
+        VALUES (?, ?, ?, ?, ?, NULL)
+      `).run(timerState.projectId, timerState.userId, startTime, endTime, durationSeconds);
+    } catch (error) {
+      console.error('Error saving time entry:', error);
+    }
+  }
+
   timerState.running = false;
-  timerState.pausedTime = timerState.running && timerState.startTime
-    ? Date.now() - timerState.startTime - timerState.pausedTime
-    : 0;
+  timerState.paused = false;
+  timerState.projectId = null;
+  timerState.userId = null;
   timerState.startTime = null;
+  timerState.pausedDurationMs = 0;
 
   broadcastTimerState();
 }
@@ -255,18 +301,20 @@ function stopTimer() {
 function pauseTimer() {
   if (!timerState.running || !timerState.startTime) return;
 
-  timerState.pausedTime = Date.now() - timerState.startTime - timerState.pausedTime;
+  timerState.pausedDurationMs += Date.now() - timerState.startTime;
   timerState.startTime = null;
   timerState.running = false;
+  timerState.paused = true;
 
   broadcastTimerState();
 }
 
 function resumeTimer() {
-  if (timerState.running || !timerState.startTime) return;
+  if (timerState.running || !timerState.paused) return;
 
   timerState.running = true;
-  timerState.startTime = Date.now() - (timerState.pausedTime || 0);
+  timerState.paused = false;
+  timerState.startTime = Date.now();
 
   broadcastTimerState();
 }
@@ -416,8 +464,8 @@ function setupScreenLockDetection() {
 // IPC HANDLERS
 // ============================================================================
 
-ipcMain.handle('timer:start', (event, project) => {
-  startTimer(project);
+ipcMain.handle('timer:start', (event, { projectId, userId }) => {
+  startTimer(projectId, userId);
   return getTimerState();
 });
 
@@ -440,25 +488,17 @@ ipcMain.handle('timer:getState', (event) => {
   return getTimerState();
 });
 
-ipcMain.handle('timer:getProjects', async (event) => {
-  // Try to fetch from main app; fallback to hardcoded list
+ipcMain.handle('projects:getActive', async (event, userId) => {
   try {
-    const response = await fetch('http://localhost:3001/api/categories');
+    const response = await fetch(`http://localhost:3001/api/users/${userId}/projects`);
     if (response.ok) {
-      return await response.json();
+      const projects = await response.json();
+      return projects.filter(p => !p.archived);
     }
   } catch (error) {
-    console.warn('Failed to fetch categories from API:', error);
+    console.warn('Failed to fetch projects from API:', error);
   }
-
-  // Fallback project list
-  return [
-    'Curriculum Review',
-    'PD Day Planning',
-    'Program Assessment',
-    'Committee Work',
-    'Research Project',
-  ];
+  return [];
 });
 
 ipcMain.handle('timer:reconcile', (event, { amount, unit }) => {
