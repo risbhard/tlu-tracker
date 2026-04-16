@@ -1,0 +1,52 @@
+{
+  "name": "tlu-tracker",
+  "version": "1.0.0",
+  "description": "Tropical Livestock Unit (TLU) Tracker",
+  "main": "electron/main.js",
+  "homepage": "./",
+  "scripts": {
+    "server": "node server/index.js",
+    "client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install-all": "npm install && cd client && npm install",
+    "electron": "cd client && npm run build && cd .. && electron .",
+    "electron-dev": "cd client && npm run build && cd .. && NODE_ENV=development electron .",
+    "electron-build": "cd client && npm run build && electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "pdfkit": "^0.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^25.1.1"
+  },
+  "build": {
+    "appId": "com.tlutracker.app",
+    "productName": "TLU Tracker",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    }
+  }
+}

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TLU Tracker - Mini Timer Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --color-charcoal: #3c3c3c;
+      --color-magenta: #e31b54;
+      --color-green: #0f6e56;
+      --color-grey: #888888;
+      --color-light-grey: #f5f5f5;
+      --color-white: #ffffff;
+      --color-border: #e0e0e0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      background: #f0f2f5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .demo-container {
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .demo-header {
+      max-width: 900px;
+      margin: 0 auto 40px;
+    }
+
+    .demo-header h1 {
+      font-size: 2rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .demo-header p {
+      color: #666;
+      font-size: 1rem;
+    }
+
+    .demo-controls {
+      max-width: 900px;
+      margin: 0 auto 40px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .demo-controls h2 {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      color: #333;
+    }
+
+    .demo-controls label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      color: #555;
+      margin-right: 20px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    .demo-controls input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .demo-widget-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Mini Timer Stylesheet */
+    .mini-timer-container {
+      width: 280px;
+      height: 200px;
+      display: flex;
+      flex-direction: column;
+      background: var(--color-white);
+      border: 2px solid var(--color-charcoal);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .mini-timer-titlebar {
+      height: 36px;
+      background: var(--color-charcoal);
+      color: var(--color-white);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      cursor: move;
+      flex-shrink: 0;
+    }
+
+    .titlebar-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease;
+    }
+
+    .titlebar-text {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      flex: 1;
+    }
+
+    .mini-timer-content {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .mini-timer-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mini-timer-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .mini-timer-select {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: var(--color-white);
+      color: #333;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 16px;
+      padding-right: 28px;
+    }
+
+    .mini-timer-select:disabled {
+      background-color: var(--color-light-grey);
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .mini-timer-elapsed {
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      text-align: center;
+      color: var(--color-magenta);
+      letter-spacing: 2px;
+      padding: 8px 0;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-timer-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mini-timer-btn {
+      flex: 1;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .mini-timer-btn.primary {
+      background: var(--color-green);
+      color: var(--color-white);
+      font-size: 14px;
+    }
+
+    .mini-timer-btn.primary:hover {
+      background: #0d5a47;
+    }
+
+    .mini-timer-btn.primary.stop {
+      background: var(--color-magenta);
+    }
+
+    .mini-timer-btn.primary.stop:hover {
+      background: #c41547;
+    }
+
+    .mini-timer-btn.secondary {
+      background: transparent;
+      color: var(--color-charcoal);
+      border: 1px solid var(--color-border);
+      font-size: 12px;
+      flex: 0.8;
+    }
+
+    .mini-timer-btn.secondary:hover {
+      border-color: var(--color-charcoal);
+      background: var(--color-light-grey);
+    }
+
+    .mini-timer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .mini-timer-dialog {
+      background: var(--color-white);
+      border: 2px solid var(--color-charcoal);
+      border-radius: 14px;
+      padding: 20px;
+      max-width: 320px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .mini-timer-dialog h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-charcoal);
+      margin-bottom: 12px;
+    }
+
+    .mini-timer-dialog p {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+
+    .idle-time {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-magenta);
+      margin-bottom: 12px;
+    }
+
+    .idle-note {
+      font-size: 11px;
+      color: #999;
+      font-style: italic;
+      margin-bottom: 16px;
+    }
+
+    .dialog-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .btn-yes {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--color-green);
+      color: var(--color-white);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-yes:hover {
+      background: #0d5a47;
+    }
+
+    .btn-pause {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: transparent;
+      color: var(--color-charcoal);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-pause:hover {
+      border-color: var(--color-charcoal);
+      background: var(--color-light-grey);
+    }
+
+    .btn-confirm {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--color-magenta);
+      color: var(--color-white);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 8px;
+    }
+
+    .btn-confirm:hover {
+      background: #c41547;
+    }
+
+    .reconciliation-info {
+      background: var(--color-light-grey);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .reconciliation-info p {
+      margin-bottom: 6px;
+    }
+
+    .reconciliation-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #555;
+      padding: 8px;
+      border-radius: 6px;
+      transition: background 0.2s ease;
+    }
+
+    .option:hover {
+      background: var(--color-light-grey);
+    }
+
+    .option input[type='radio'] {
+      margin-top: 3px;
+      cursor: pointer;
+      accent-color: var(--color-magenta);
+      flex-shrink: 0;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <div class="demo-header">
+      <h1>🎯 TLU Tracker - Mini Timer Demo</h1>
+      <p>Interactive demo of the floating mini timer widget. Since this is a headless dev container, we can't run the full Electron app here, but you can see and interact with the widget UI, styling, and functionality.</p>
+    </div>
+
+    <div class="demo-controls">
+      <h2>Demo Controls</h2>
+      <label>
+        <input type="checkbox" id="showIdleWarning" /> Show Idle Warning Dialog
+      </label>
+      <label>
+        <input type="checkbox" id="showReconciliation" /> Show Reconciliation Dialog
+      </label>
+    </div>
+
+    <div class="demo-widget-container">
+      <div class="mini-timer-container">
+        <!-- Draggable Title Bar -->
+        <div class="mini-timer-titlebar">
+          <div class="titlebar-content">
+            <span class="status-dot" id="statusDot"></span>
+            <span class="titlebar-text">TLU Tracker</span>
+          </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="mini-timer-content">
+          <!-- Project Selector -->
+          <div class="mini-timer-section">
+            <label class="mini-timer-label">Project</label>
+            <select class="mini-timer-select" id="projectSelect">
+              <option>Curriculum Review</option>
+              <option>PD Day Planning</option>
+              <option>Program Assessment</option>
+              <option>Committee Work</option>
+              <option>Research Project</option>
+            </select>
+          </div>
+
+          <!-- Elapsed Time Display -->
+          <div class="mini-timer-elapsed" id="elapsedTime">0:00:00</div>
+
+          <!-- Control Buttons -->
+          <div class="mini-timer-buttons">
+            <button class="mini-timer-btn primary" id="startStopBtn">Start</button>
+            <button class="mini-timer-btn secondary" id="expandBtn">Expand</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Idle Warning Overlay -->
+  <div class="mini-timer-overlay hidden" id="idleOverlay">
+    <div class="mini-timer-dialog">
+      <h3>Still working?</h3>
+      <p class="idle-time">You've been idle for 23 minutes</p>
+      <p class="idle-note">This won't appear during Zoom/Teams calls.</p>
+      <div class="dialog-buttons">
+        <button class="btn-yes" id="yesStillWorkingBtn">Yes, still working</button>
+        <button class="btn-pause" id="pauseTimerBtn">Pause timer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reconciliation Dialog -->
+  <div class="mini-timer-overlay hidden" id="reconciliationOverlay">
+    <div class="mini-timer-dialog">
+      <h3>Session Reconciliation</h3>
+      <div class="reconciliation-info">
+        <p><strong>Project:</strong> Curriculum Review</p>
+        <p><strong>Work time:</strong> 2h 15m</p>
+        <p style="font-size: 11px; color: #888;">Worked until screen locked at 2:45 PM</p>
+        <p style="font-size: 11px; color: #888;">Resumed at 3:10 PM</p>
+      </div>
+
+      <div class="reconciliation-options">
+        <label class="option">
+          <input type="radio" name="reconciliation" value="recommended" checked />
+          <span>Log 2h 15m (until lock) <strong style="color: #0f6e56;">← Recommended</strong></span>
+        </label>
+
+        <label class="option">
+          <input type="radio" name="reconciliation" value="custom" />
+          <span>Custom amount</span>
+        </label>
+
+        <label class="option">
+          <input type="radio" name="reconciliation" value="discard" />
+          <span>Discard session</span>
+        </label>
+      </div>
+
+      <button class="btn-confirm" id="confirmReconciliation">Confirm</button>
+    </div>
+  </div>
+
+  <script>
+    // Demo State
+    let timerRunning = false;
+    let elapsedSeconds = 0;
+    let timerInterval = null;
+
+    // Elements
+    const statusDot = document.getElementById('statusDot');
+    const projectSelect = document.getElementById('projectSelect');
+    const elapsedTimeDisplay = document.getElementById('elapsedTime');
+    const startStopBtn = document.getElementById('startStopBtn');
+    const expandBtn = document.getElementById('expandBtn');
+    const idleOverlay = document.getElementById('idleOverlay');
+    const reconciliationOverlay = document.getElementById('reconciliationOverlay');
+    const idleWarningCheckbox = document.getElementById('showIdleWarning');
+    const reconciliationCheckbox = document.getElementById('showReconciliation');
+    const yesStillWorkingBtn = document.getElementById('yesStillWorkingBtn');
+    const pauseTimerBtn = document.getElementById('pauseTimerBtn');
+    const confirmReconciliationBtn = document.getElementById('confirmReconciliation');
+
+    // Format time as H:MM:SS
+    function formatTime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Update elapsed time display
+    function updateElapsedDisplay() {
+      elapsedTimeDisplay.textContent = formatTime(elapsedSeconds);
+    }
+
+    // Start/Stop timer
+    function toggleTimer() {
+      if (timerRunning) {
+        // Stop
+        clearInterval(timerInterval);
+        timerRunning = false;
+        startStopBtn.textContent = 'Start';
+        startStopBtn.classList.remove('stop');
+        statusDot.style.backgroundColor = '#888888';
+        projectSelect.disabled = false;
+      } else {
+        // Start
+        timerRunning = true;
+        startStopBtn.textContent = 'Stop';
+        startStopBtn.classList.add('stop');
+        statusDot.style.backgroundColor = '#E31B54';
+        projectSelect.disabled = true;
+
+        timerInterval = setInterval(() => {
+          elapsedSeconds++;
+          updateElapsedDisplay();
+        }, 1000);
+      }
+    }
+
+    // Event Listeners
+    startStopBtn.addEventListener('click', toggleTimer);
+
+    expandBtn.addEventListener('click', () => {
+      alert('This would open the main TLU Tracker window in the full Electron app.');
+    });
+
+    // Idle Warning Controls
+    idleWarningCheckbox.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        idleOverlay.classList.remove('hidden');
+      } else {
+        idleOverlay.classList.add('hidden');
+      }
+    });
+
+    yesStillWorkingBtn.addEventListener('click', () => {
+      idleOverlay.classList.add('hidden');
+      idleWarningCheckbox.checked = false;
+    });
+
+    pauseTimerBtn.addEventListener('click', () => {
+      toggleTimer();
+      idleOverlay.classList.add('hidden');
+      idleWarningCheckbox.checked = false;
+    });
+
+    // Reconciliation Controls
+    reconciliationCheckbox.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        reconciliationOverlay.classList.remove('hidden');
+      } else {
+        reconciliationOverlay.classList.add('hidden');
+      }
+    });
+
+    confirmReconciliationBtn.addEventListener('click', () => {
+      const selectedOption = document.querySelector('input[name="reconciliation"]:checked').value;
+      alert(`Reconciliation confirmed: ${selectedOption}`);
+      reconciliationOverlay.classList.add('hidden');
+      reconciliationCheckbox.checked = false;
+    });
+
+    // Initialize display
+    updateElapsedDisplay();
+  </script>
+</body>
+</html>

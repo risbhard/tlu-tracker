@@ -1,0 +1,553 @@
+/* Mini Timer Stylesheet */
+
+:root {
+  --color-charcoal: #3c3c3c;
+  --color-magenta: #e31b54;
+  --color-green: #0f6e56;
+  --color-grey: #888888;
+  --color-light-grey: #f5f5f5;
+  --color-white: #ffffff;
+  --color-border: #e0e0e0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', sans-serif;
+  color: #333;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#mini-timer-root {
+  width: 100%;
+  height: 100%;
+}
+
+/* ================================================================
+   MAIN CONTAINER & LAYOUT
+   ================================================================ */
+
+.mini-timer-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-white);
+  border: 2px solid var(--color-charcoal);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ================================================================
+   TITLE BAR (DRAGGABLE)
+   ================================================================ */
+
+.mini-timer-titlebar {
+  height: 36px;
+  background: var(--color-charcoal);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+  cursor: move;
+  flex-shrink: 0;
+}
+
+.titlebar-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.titlebar-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  -webkit-user-select: none;
+  user-select: none;
+  flex: 1;
+}
+
+/* ================================================================
+   CONTENT AREA
+   ================================================================ */
+
+.mini-timer-content {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+}
+
+/* ================================================================
+   SECTION & LABEL STYLING
+   ================================================================ */
+
+.mini-timer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mini-timer-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ================================================================
+   PROJECT DROPDOWN
+   ================================================================ */
+
+.mini-timer-select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-white);
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 28px;
+}
+
+.mini-timer-select:hover:not(:disabled) {
+  border-color: var(--color-magenta);
+}
+
+.mini-timer-select:focus {
+  outline: none;
+  border-color: var(--color-magenta);
+  box-shadow: 0 0 0 2px rgba(227, 27, 84, 0.1);
+}
+
+.mini-timer-select:disabled {
+  background-color: var(--color-light-grey);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ================================================================
+   ELAPSED TIME DISPLAY
+   ================================================================ */
+
+.mini-timer-elapsed {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 28px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-magenta);
+  letter-spacing: 2px;
+  padding: 8px 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mini-timer-elapsed {
+  transition: color 0.3s ease;
+}
+
+/* ================================================================
+   CONTROL BUTTONS
+   ================================================================ */
+
+.mini-timer-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mini-timer-btn {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Primary Button - Start/Stop */
+.mini-timer-btn.primary {
+  background: var(--color-green);
+  color: var(--color-white);
+  font-size: 14px;
+}
+
+.mini-timer-btn.primary:hover {
+  background: #0d5a47;
+  box-shadow: 0 2px 4px rgba(15, 110, 86, 0.3);
+}
+
+.mini-timer-btn.primary:active {
+  background: #0a4835;
+}
+
+.mini-timer-btn.primary.stop {
+  background: var(--color-magenta);
+}
+
+.mini-timer-btn.primary.stop:hover {
+  background: #c41547;
+  box-shadow: 0 2px 4px rgba(227, 27, 84, 0.3);
+}
+
+.mini-timer-btn.primary.stop:active {
+  background: #a81240;
+}
+
+/* Secondary Button - Expand */
+.mini-timer-btn.secondary {
+  background: transparent;
+  color: var(--color-charcoal);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  flex: 0.8;
+}
+
+.mini-timer-btn.secondary:hover {
+  border-color: var(--color-charcoal);
+  background: var(--color-light-grey);
+}
+
+.mini-timer-btn.secondary:active {
+  background: #e8e8e8;
+}
+
+/* ================================================================
+   OVERLAY DIALOGS
+   ================================================================ */
+
+.mini-timer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mini-timer-dialog {
+  background: var(--color-white);
+  border: 2px solid var(--color-charcoal);
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.mini-timer-dialog h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin-bottom: 12px;
+}
+
+.mini-timer-dialog p {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+/* ================================================================
+   IDLE WARNING DIALOG
+   ================================================================ */
+
+.idle-time {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-magenta);
+  margin-bottom: 12px;
+}
+
+.idle-note {
+  font-size: 11px;
+  color: #999;
+  font-style: italic;
+  margin-bottom: 16px;
+}
+
+.dialog-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn-yes {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--color-green);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-yes:hover {
+  background: #0d5a47;
+}
+
+.btn-yes:active {
+  background: #0a4835;
+}
+
+.btn-pause {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--color-charcoal);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-pause:hover {
+  border-color: var(--color-charcoal);
+  background: var(--color-light-grey);
+}
+
+.btn-pause:active {
+  background: #e8e8e8;
+}
+
+/* ================================================================
+   RECONCILIATION DIALOG
+   ================================================================ */
+
+.mini-timer-dialog.reconciliation {
+  max-width: 360px;
+}
+
+.reconciliation-info {
+  background: var(--color-light-grey);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.reconciliation-info p {
+  margin-bottom: 6px;
+  color: #555;
+}
+
+.reconciliation-info p:last-child {
+  margin-bottom: 0;
+}
+
+.reconciliation-info strong {
+  font-weight: 600;
+  color: var(--color-charcoal);
+}
+
+.text-sm {
+  font-size: 11px;
+  color: #888;
+}
+
+.reconciliation-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #555;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.option:hover {
+  background: var(--color-light-grey);
+}
+
+.option input[type='radio'] {
+  margin-top: 3px;
+  cursor: pointer;
+  accent-color: var(--color-magenta);
+  flex-shrink: 0;
+}
+
+.option span {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.custom-amount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0 0 24px;
+  margin-bottom: 8px;
+}
+
+.custom-amount input {
+  width: 50px;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.custom-amount input:focus {
+  outline: none;
+  border-color: var(--color-magenta);
+  box-shadow: 0 0 0 2px rgba(227, 27, 84, 0.1);
+}
+
+.custom-amount span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  min-width: 20px;
+  text-align: center;
+}
+
+.btn-confirm {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--color-magenta);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+
+.btn-confirm:hover {
+  background: #c41547;
+}
+
+.btn-confirm:active {
+  background: #a81240;
+}
+
+/* ================================================================
+   SCROLLBAR STYLING
+   ================================================================ */
+
+.mini-timer-dialog::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mini-timer-dialog::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mini-timer-dialog::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.mini-timer-dialog::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+/* ================================================================
+   ACCESSIBILITY & FOCUS STATES
+   ================================================================ */
+
+button:focus,
+select:focus,
+input:focus {
+  outline: 2px solid var(--color-magenta);
+  outline-offset: 2px;
+}
+
+/* ================================================================
+   PRINT & MEDIA QUERIES
+   ================================================================ */
+
+@media print {
+  .mini-timer-container {
+    display: none;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .mini-timer-select,
+  .mini-timer-btn,
+  .status-dot,
+  .mini-timer-elapsed,
+  .option,
+  button {
+    transition: none;
+  }
+}
