@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('timer:reconcile', (_event, data) => callback(data)),
   },
 
+  // Time entries IPC
+  timeEntry: {
+    onCreated: (callback) =>
+      ipcRenderer.on('time-entry:created', (_event, data) => callback(data)),
+  },
+
   // App IPC
   app: {
     openMainWindow: () => ipcRenderer.invoke('app:openMainWindow'),

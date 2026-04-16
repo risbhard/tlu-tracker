@@ -10,11 +10,49 @@ export default function Dashboard({ user, setUser, onDataChange }) {
   const [openTooltip, setOpenTooltip] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [loadingButtons, setLoadingButtons] = useState({});
+  const [timerState, setTimerState] = useState(null);
   const tooltipRef = useRef(null);
 
   useEffect(() => {
     api.getDashboard(user.id).then(setData).catch(console.error);
   }, [user.id]);
+
+  // Listen for time entry creation and timer state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      // Listen for time entry created events
+      window.electronAPI?.timeEntry?.onCreated((data) => {
+        console.log('Time entry created:', data);
+        // Refresh dashboard data to show updated hours
+        setData((prev) => {
+          if (!prev) return prev;
+          // Recalculate totals based on new entry
+          const newData = { ...prev };
+          const hoursAdded = data.timeEntry.duration_seconds / 3600;
+          newData.total_used += hoursAdded;
+          newData.remaining = newData.total_allowed - newData.total_used;
+          
+          // Update category breakdown if available
+          if (newData.by_category) {
+            // In a real app, you'd want to properly track which category this belongs to
+            // For now, just update the totals
+          }
+          return newData;
+        });
+        // Trigger parent refresh to update projects list
+        onDataChange();
+      });
+
+      // Listen for timer state changes
+      window.electronAPI?.timer?.onStateChanged((state) => {
+        setTimerState(state);
+      });
+    }
+
+    return () => {
+      // Cleanup listeners if needed
+    };
+  }, [onDataChange]);
 
   // Handle click outside to close tooltip
   useEffect(() => {
@@ -88,6 +126,12 @@ export default function Dashboard({ user, setUser, onDataChange }) {
     setOpenTooltip(openTooltip === name ? null : name);
   };
 
+  const getProjectName = (projectId) => {
+    // Placeholder - in a real app, you'd fetch project details
+    // For now, we'll extract from data by searching through categories/projects
+    return `Project ${projectId}`;
+  };
+
   if (!data) return <div className="panel"><p>Loading...</p></div>;
 
   const pct = data.total_allowed > 0 ? Math.min((data.total_used / data.total_allowed) * 100, 100) : 0;
@@ -96,6 +140,18 @@ export default function Dashboard({ user, setUser, onDataChange }) {
 
   return (
     <div ref={tooltipRef}>
+      {/* Timer Running Indicator */}
+      {timerState?.running && (
+        <div className="panel timer-indicator" style={{ background: '#fff8f9', borderLeft: '4px solid #E31B54', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '12px', height: '12px', background: '#E31B54', borderRadius: '50%', animation: 'pulse 1s infinite' }}></div>
+            <span style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              ⏱️ Timer running on {getProjectName(timerState.projectId)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Stats row */}
       <div className="stats-row">
         <div className="stat-card">

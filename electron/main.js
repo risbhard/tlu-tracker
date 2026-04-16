@@ -276,13 +276,25 @@ function stopTimer() {
   const startTime = new Date(Date.now() - elapsed).toISOString();
   const durationSeconds = elapsed / 1000;
 
+  let timeEntry = null;
+
   // Save to database if we have projectId, userId, and db is available
   if (timerState.projectId && timerState.userId && db) {
     try {
-      db.prepare(`
+      const result = db.prepare(`
         INSERT INTO time_entries (project_id, user_id, start_time, end_time, duration_seconds, notes)
         VALUES (?, ?, ?, ?, ?, NULL)
       `).run(timerState.projectId, timerState.userId, startTime, endTime, durationSeconds);
+
+      // Fetch the newly created entry
+      timeEntry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(result.lastInsertRowid);
+
+      // Broadcast to all windows (main dashboard + mini timer)
+      broadcastToAllWindows('time-entry:created', {
+        projectId: timerState.projectId,
+        userId: timerState.userId,
+        timeEntry,
+      });
     } catch (error) {
       console.error('Error saving time entry:', error);
     }
@@ -328,6 +340,16 @@ function broadcastTimerState() {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('timer:state-changed', state);
+  }
+}
+
+function broadcastToAllWindows(channel, data) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, data);
+  }
+
+  if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+    miniTimerWindow.webContents.send(channel, data);
   }
 }
 

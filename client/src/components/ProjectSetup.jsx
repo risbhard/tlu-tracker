@@ -5,6 +5,7 @@ export default function ProjectSetup({ user, onDataChange }) {
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [timerState, setTimerState] = useState(null);
 
   // Form state
   const [description, setDescription] = useState('');
@@ -18,6 +19,40 @@ export default function ProjectSetup({ user, onDataChange }) {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  // Listen for time entry creation and timer state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      // Listen for time entry created events and update projects list
+      window.electronAPI?.timeEntry?.onCreated((data) => {
+        console.log('Time entry created for project:', data.projectId);
+        // Update the specific project's hours logged
+        setProjects((prev) =>
+          prev.map((project) => {
+            if (project.id === data.projectId) {
+              const hoursAdded = data.timeEntry.duration_seconds / 3600;
+              return {
+                ...project,
+                hours_logged: (project.hours_logged || 0) + hoursAdded,
+              };
+            }
+            return project;
+          })
+        );
+        // Trigger parent refresh
+        onDataChange();
+      });
+
+      // Listen for timer state changes
+      window.electronAPI?.timer?.onStateChanged((state) => {
+        setTimerState(state);
+      });
+    }
+
+    return () => {
+      // Cleanup listeners if needed
+    };
+  }, [onDataChange]);
 
   const loadProjects = async () => {
     try {

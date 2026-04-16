@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('timer:state-changed', (_event, state) => callback(state)),
   },
 
+  // Time entries IPC
+  timeEntry: {
+    onCreated: (callback) =>
+      ipcRenderer.on('time-entry:created', (_event, data) => callback(data)),
+  },
+
   // Projects IPC
   projects: {
     getActive: (userId) => ipcRenderer.invoke('projects:getActive', userId),

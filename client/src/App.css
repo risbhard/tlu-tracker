@@ -931,6 +931,16 @@ body {
   }
 }
 
+/* Pulse animation for timer indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .spinner {
   display: inline-block;
   width: 16px;
