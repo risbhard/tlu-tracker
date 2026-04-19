@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import './mini-timer.css';
+import '../mini-timer.css';
 
 export default function MiniTimer() {
   const [timerState, setTimerState] = useState({
