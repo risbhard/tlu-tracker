@@ -21,13 +21,17 @@ jobs:
       - name: Install Python setuptools (distutils shim)
         run: python -m pip install setuptools
 
-      - name: Update npm and node-gyp
+      - name: Diagnose environment
+        shell: bash
         run: |
-          npm install -g npm@latest
-          npm install -g node-gyp@latest
+          node --version
+          npm --version
+          ls -la
+          echo "--- client folder ---"
+          ls -la client || echo "no client folder"
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Rebuild native modules
         run: npm rebuild better-sqlite3 --update-binary
@@ -35,7 +39,7 @@ jobs:
       - name: Install client dependencies and build UI
         run: |
           cd client
-          npm ci
+          npm install
           npm run build
 
       - name: Build Windows portable installer
@@ -62,13 +66,16 @@ jobs:
       - name: Install Python setuptools (distutils shim)
         run: python -m pip install setuptools
 
-      - name: Update npm and node-gyp
+      - name: Diagnose environment
         run: |
-          npm install -g npm@latest
-          npm install -g node-gyp@latest
+          node --version
+          npm --version
+          ls -la
+          echo "--- client folder ---"
+          ls -la client || echo "no client folder"
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Rebuild native modules
         run: npm rebuild better-sqlite3 --update-binary
@@ -76,7 +83,7 @@ jobs:
       - name: Install client dependencies and build UI
         run: |
           cd client
-          npm ci
+          npm install
           npm run build
 
       - name: Build Mac DMG
