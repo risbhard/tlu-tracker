@@ -4,9 +4,6 @@ import ProgressBar from './ProgressBar';
 
 export default function Dashboard({ user, setUser, onDataChange }) {
   const [data, setData] = useState(null);
-  const [selectedHours, setSelectedHours] = useState(user.total_hours_allocation || null);
-  const [customInput, setCustomInput] = useState('');
-  const [showCustomInput, setShowCustomInput] = useState(false);
   const [openTooltip, setOpenTooltip] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [loadingButtons, setLoadingButtons] = useState({});
@@ -96,30 +93,6 @@ export default function Dashboard({ user, setUser, onDataChange }) {
         setLoadingButtons((prev) => ({ ...prev, [buttonId]: false }));
       }
     };
-  };
-
-  const handleAllocationSelect = async (hours) => {
-    try {
-      const updated = await api.updateUser(user.id, { total_hours_allocation: hours });
-      setUser(updated);
-      setSelectedHours(hours);
-      setShowCustomInput(false);
-      setCustomInput('');
-      const refreshed = await api.getDashboard(user.id);
-      setData(refreshed);
-      onDataChange();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleCustomUpdate = async () => {
-    const customValue = parseInt(customInput, 10);
-    if (!customValue || customValue < 1) {
-      alert('Please enter a valid number of hours (at least 1)');
-      return;
-    }
-    await withLoadingState('settings', () => handleAllocationSelect(customValue))();
   };
 
   const toggleTooltip = (name) => {
@@ -212,7 +185,7 @@ export default function Dashboard({ user, setUser, onDataChange }) {
           </div>
           {openTooltip === 'total-allowed' && (
             <div id="tooltip-total-allowed" role="tooltip" className="tooltip">
-              Your total hour allocation for this release. You can change this in Settings below (100h, 70h, or custom).
+              Your total hour allocation for this release.
             </div>
           )}
         </div>
@@ -223,77 +196,9 @@ export default function Dashboard({ user, setUser, onDataChange }) {
         <ProgressBar hoursUsed={data.total_used} totalAllowed={data.total_allowed} />
       </div>
 
-      {/* Hour Allocation Selector */}
+      {/* Export buttons */}
       <div className="panel">
-        <h2>Settings & Export</h2>
-        <div className="allocation-section">
-          <h3>Total Hours Allocation</h3>
-          <div className="allocation-options">
-            <button
-              className={`allocation-btn ${selectedHours === 100 ? 'active' : ''}`}
-              onClick={() => handleAllocationSelect(100)}
-            >
-              <div className="btn-label">Department Standard</div>
-              <div className="btn-hours">100h</div>
-            </button>
-            <button
-              className={`allocation-btn ${selectedHours === 70 ? 'active' : ''}`}
-              onClick={() => handleAllocationSelect(70)}
-            >
-              <div className="btn-label">Business Unit</div>
-              <div className="btn-hours">70h</div>
-            </button>
-            <button
-              className={`allocation-btn ${showCustomInput || (selectedHours && selectedHours !== 100 && selectedHours !== 70) ? 'active' : ''}`}
-              onClick={() => setShowCustomInput(!showCustomInput)}
-            >
-              <div className="btn-label">Other</div>
-              <div className="btn-hours">Custom</div>
-            </button>
-          </div>
-
-          {showCustomInput && (
-            <div className="custom-input-section">
-              <label htmlFor="custom-hours">Enter your total hours:</label>
-              <div className="custom-input-group">
-                <input
-                  id="custom-hours"
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={customInput}
-                  onChange={(e) => setCustomInput(e.target.value)}
-                  placeholder="e.g. 80"
-                />
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleCustomUpdate}
-                  disabled={loadingButtons.settings}
-                >
-                  {loadingButtons.settings ? (
-                    <span className="spinner"></span>
-                  ) : (
-                    'Update'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {selectedHours && selectedHours !== 100 && selectedHours !== 70 && !showCustomInput && (
-            <div className="custom-display">
-              Current custom allocation: <strong>{selectedHours}h</strong>
-              <button
-                className="btn-link"
-                onClick={() => setShowCustomInput(true)}
-              >
-                Edit
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Export buttons */}
+        <h2>Export</h2>
         <div className="export-row">
           <button 
             className="btn btn-success" 
@@ -335,15 +240,15 @@ export default function Dashboard({ user, setUser, onDataChange }) {
       </div>
 
       {/* Category breakdown */}
-      {data.by_category.length > 0 && (
+      {data.by_project.length > 0 && (
         <div className="panel">
-          <h2>Hours by Category</h2>
+          <h2>Hours by Project</h2>
           <div className="category-grid">
-            {data.by_category.map((c) => (
-              <div key={c.category} className="category-item">
-                <div className="cat-name">{c.category}</div>
-                <div className="cat-hours">{c.hours.toFixed(1)}h</div>
-                <div className="cat-entries">{c.entries} {c.entries === 1 ? 'entry' : 'entries'}</div>
+            {data.by_project.map((p) => (
+              <div key={p.id} className="category-item">
+                <div className="cat-name">{p.description}</div>
+                <div className="cat-hours">{p.hours.toFixed(1)}h</div>
+                <div className="cat-entries">{p.entries} {p.entries === 1 ? 'entry' : 'entries'}</div>
               </div>
             ))}
           </div>

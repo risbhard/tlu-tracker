@@ -348,7 +348,8 @@ body {
 /* Progress bar track and markers */
 .progress-bar-container {
   position: relative;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+  padding-top: 10px;
 }
 
 .progress-bar-track {
@@ -368,8 +369,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  box-sizing: border-box;
   padding-right: 12px;
-  min-width: 40px;
+  min-width: 2ch;
 }
 
 .progress-text-inside {
@@ -393,26 +395,28 @@ body {
 /* Milestone markers */
 .milestone-marker {
   position: absolute;
-  top: -50px;
+  top: 0;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   z-index: 10;
+  pointer-events: none;
 }
 
 .milestone-line {
   width: 2px;
-  height: 40px;
+  height: 16px;
   background: #e2e8f0;
   border-radius: 1px;
 }
 
 .milestone-label {
-  font-size: 11px;
-  color: #888;
-  font-weight: 500;
+  font-size: 12px;
+  color: #555;
+  font-weight: 600;
+  margin-top: 4px;
 }
 
 /* Color legend */
@@ -1189,7 +1193,7 @@ body {
   }
 
   .milestone-marker {
-    top: -60px;
+    bottom: -45px;
   }
 
   .progress-text-outside {

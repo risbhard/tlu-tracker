@@ -1,0 +1,126 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm rebuild better-sqlite3 --update-binary
+
+      - name: Install client dependencies and build UI
+        run: |
+          cd client
+          npm ci
+          npm run build
+
+      - name: Build Windows portable installer
+        run: npm run electron-build
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tlu-tracker-windows
+          path: dist/*.exe
+
+  build-mac:
+    name: Build Mac DMG
+    runs-on: macos-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm rebuild better-sqlite3 --update-binary
+
+      - name: Install client dependencies and build UI
+        run: |
+          cd client
+          npm ci
+          npm run build
+
+      - name: Build Mac DMG
+        run: npm run electron-build
+
+      - name: Upload Mac artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tlu-tracker-mac
+          path: dist/*.dmg
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - build-windows
+      - build-mac
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tlu-tracker-windows
+          path: artifacts/windows
+
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tlu-tracker-mac
+          path: artifacts/mac
+
+      - name: Find built installers
+        id: find-artifacts
+        run: |
+          echo "EXE_PATH=$(find artifacts/windows -type f -name '*.exe' | head -n 1)" >> $GITHUB_OUTPUT
+          echo "DMG_PATH=$(find artifacts/mac -type f -name '*.dmg' | head -n 1)" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows release asset
+        uses: actions/upload-release-asset@v2
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find-artifacts.outputs.EXE_PATH }}
+          asset_name: ${{ github.ref_name }}-windows-portable.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Mac release asset
+        uses: actions/upload-release-asset@v2
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find-artifacts.outputs.DMG_PATH }}
+          asset_name: ${{ github.ref_name }}-mac.dmg
+          asset_content_type: application/octet-stream

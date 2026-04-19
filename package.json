@@ -11,7 +11,7 @@
     "install-all": "npm install && cd client && npm install",
     "electron": "cd client && npm run build && cd .. && electron .",
     "electron-dev": "cd client && npm run build && cd .. && NODE_ENV=development electron .",
-    "electron-build": "cd client && npm run build && electron-builder"
+    "electron-build": "cd client && npm run build && cd .. && npx electron-builder --win portable --mac dmg --publish=never"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

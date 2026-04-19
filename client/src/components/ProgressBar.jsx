@@ -27,7 +27,7 @@ export default function ProgressBar({ hoursUsed, totalAllowed }) {
   const marker50Pct = (50 / totalAllowed) * 100;
 
   // Determine if percentage text should be inside or outside the bar
-  const showTextInside = pct >= 15;
+  const showTextInside = pct >= 10;
 
   return (
     <div className="progress-bar-wrapper">

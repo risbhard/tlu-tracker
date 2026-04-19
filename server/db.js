@@ -10,9 +10,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    pin TEXT NOT NULL,
+    pin TEXT,
     tlu_count INTEGER NOT NULL DEFAULT 1,
     total_hours_allocation INTEGER,
+    pin_prompt_shown INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -21,10 +22,12 @@ db.exec(`
     user_id INTEGER NOT NULL,
     date TEXT NOT NULL,
     hours REAL NOT NULL,
-    category TEXT NOT NULL,
+    category TEXT,
+    project_id INTEGER,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS projects (
@@ -53,9 +56,21 @@ db.exec(`
   );
 `);
 
-// Add column if it doesn't exist (for existing databases)
+// Add columns if they don't exist (for existing databases)
 try {
   db.prepare('ALTER TABLE users ADD COLUMN total_hours_allocation INTEGER').run();
+} catch (e) {
+  // Column already exists, ignore error
+}
+
+try {
+  db.prepare('ALTER TABLE hour_logs ADD COLUMN project_id INTEGER').run();
+} catch (e) {
+  // Column already exists, ignore error
+}
+
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN pin_prompt_shown INTEGER DEFAULT 0').run();
 } catch (e) {
   // Column already exists, ignore error
 }
