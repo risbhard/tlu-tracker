@@ -7,8 +7,8 @@ on:
 
 jobs:
   build-windows:
-    - name: Build Windows portable installer
-  run: npm run electron-build:win
+    name: Build Windows Installer
+    runs-on: windows-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -43,7 +43,7 @@ jobs:
           npm run build
 
       - name: Build Windows portable installer
-        run: npm run electron-build
+        run: npm run electron-build:win
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -52,8 +52,8 @@ jobs:
           path: dist/*.exe
 
   build-mac:
-    - name: Build Mac DMG
-  run: npm run electron-build:mac
+    name: Build Mac DMG
+    runs-on: macos-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -87,7 +87,7 @@ jobs:
           npm run build
 
       - name: Build Mac DMG
-        run: npm run electron-build
+        run: npm run electron-build:mac
 
       - name: Upload Mac artifact
         uses: actions/upload-artifact@v4
