@@ -1,6 +1,10 @@
 {
   "name": "tlu-tracker",
   "version": "1.0.0",
+  "author": {
+  "name": "Rishi Bhardwaj",
+  "email": "rbhardwaj@okanagan.bc.ca"
+}
   "description": "Tropical Livestock Unit (TLU) Tracker",
   "main": "electron/main.js",
   "homepage": "./",
@@ -11,7 +15,9 @@
     "install-all": "npm install && cd client && npm install",
     "electron": "cd client && npm run build && cd .. && electron .",
     "electron-dev": "cd client && npm run build && cd .. && NODE_ENV=development electron .",
-    "electron-build": "cd client && npm run build && cd .. && npx electron-builder --win portable --mac dmg --publish=never"
+    "electron-build:win": "cd client && npm run build && cd .. && npx electron-builder --win portable --publish=never",
+"electron-build:mac": "cd client && npm run build && cd .. && npx electron-builder --mac dmg --publish=never",
+"electron-build": "cd client && npm run build && cd .. && npx electron-builder --publish=never"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

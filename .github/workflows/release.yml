@@ -7,8 +7,8 @@ on:
 
 jobs:
   build-windows:
-    name: Build Windows Installer
-    runs-on: windows-latest
+    - name: Build Windows portable installer
+  run: npm run electron-build:win
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -52,8 +52,8 @@ jobs:
           path: dist/*.exe
 
   build-mac:
-    name: Build Mac DMG
-    runs-on: macos-latest
+    - name: Build Mac DMG
+  run: npm run electron-build:mac
     steps:
       - name: Check out code
         uses: actions/checkout@v4
