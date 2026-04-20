@@ -101,6 +101,8 @@ jobs:
     needs:
       - build-windows
       - build-mac
+    permissions:
+      contents: write
     steps:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
@@ -114,36 +116,19 @@ jobs:
           name: tlu-tracker-mac
           path: artifacts/mac
 
-      - name: Find built installers
-        id: find-artifacts
-        run: |
-          echo "EXE_PATH=$(find artifacts/windows -type f -name '*.exe' | head -n 1)" >> $GITHUB_OUTPUT
-          echo "DMG_PATH=$(find artifacts/mac -type f -name '*.dmg' | head -n 1)" >> $GITHUB_OUTPUT
-
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: Release ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            TLU Tracker ${{ github.ref_name }}
+
+            Download the appropriate installer for your platform:
+            - **Windows**: `.exe` (portable, no admin rights needed)
+            - **Mac**: `.dmg`
+          files: |
+            artifacts/windows/*.exe
+            artifacts/mac/*.dmg
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Windows release asset
-        uses: actions/upload-release-asset@v2
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-artifacts.outputs.EXE_PATH }}
-          asset_name: ${{ github.ref_name }}-windows-portable.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Mac release asset
-        uses: actions/upload-release-asset@v2
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-artifacts.outputs.DMG_PATH }}
-          asset_name: ${{ github.ref_name }}-mac.dmg
-          asset_content_type: application/octet-stream
