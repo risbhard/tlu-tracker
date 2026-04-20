@@ -24,10 +24,6 @@ try {
 // Check if running in development mode
 const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
 
-// Handle Windows installer events
-if (require('electron-squirrel-startup')) {
-  process.exit(0);
-}
 
 // Timer state lives in the main process
 let timerState = {
@@ -574,5 +570,4 @@ app.on('before-quit', () => {
   }
 });
 
-// Handle Windows installer events
-require('electron-squirrel-startup');
+
