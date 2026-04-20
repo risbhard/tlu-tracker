@@ -567,6 +567,8 @@ app.on('activate', () => {
     createMainWindow();
   }
 });
+
+app.on('before-quit', () => {
   if (systemIdleCheckInterval) {
     clearInterval(systemIdleCheckInterval);
   }
