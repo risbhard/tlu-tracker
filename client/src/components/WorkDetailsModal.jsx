@@ -26,7 +26,7 @@ export default function WorkDetailsModal({ projectName, elapsedMs, onSave, onSki
       if (e.key === 'Escape') {
         e.preventDefault();
         onSkip();
-      } else if ((e.key === 'Enter') && (e.metaKey || e.ctrlKey)) {
+      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         if (notes.trim().length >= 3) {
           e.preventDefault();
           onSave(notes.trim());
@@ -37,7 +37,6 @@ export default function WorkDetailsModal({ projectName, elapsedMs, onSave, onSki
     return () => window.removeEventListener('keydown', onKey);
   }, [notes, onSave, onSkip]);
 
-  // Simple focus trap within the modal
   const handleKeyDown = (e) => {
     if (e.key !== 'Tab') return;
     const root = modalRef.current;
@@ -63,89 +62,29 @@ export default function WorkDetailsModal({ projectName, elapsedMs, onSave, onSki
       aria-modal="true"
       aria-labelledby="work-details-title"
       onKeyDown={handleKeyDown}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        zIndex: 9999,
-      }}
+      className="wd-overlay"
     >
-      <div
-        ref={modalRef}
-        style={{
-          width: '100%',
-          maxWidth: 260,
-          background: '#fff',
-          borderRadius: 8,
-          padding: 14,
-          boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}
-      >
-        <h2
-          id="work-details-title"
-          style={{
-            margin: 0,
-            fontSize: 16,
-            fontWeight: 700,
-            color: '#3C3C3C',
-          }}
-        >
+      <div ref={modalRef} className="wd-card">
+        <h2 id="work-details-title" className="wd-title">
           What did you work on?
         </h2>
-        <div style={{ fontSize: 13, color: '#6b7280' }}>{summary}</div>
+        <div className="wd-summary">{summary}</div>
         <textarea
           ref={textareaRef}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Briefly describe the work done (e.g., 'Reviewed Chapter 3 assessment rubric, drafted feedback for peer review')"
-          style={{
-            minHeight: 90,
-            fontSize: 14,
-            padding: 10,
-            border: '1px solid #ddd',
-            borderRadius: 6,
-            fontFamily: 'inherit',
-            resize: 'vertical',
-          }}
+          className="wd-textarea"
         />
         <button
           type="button"
           onClick={() => onSave(notes.trim())}
           disabled={!canSave}
-          style={{
-            minHeight: 44,
-            fontSize: 15,
-            fontWeight: 600,
-            color: '#fff',
-            background: canSave ? '#E31B54' : '#E31B54',
-            border: 'none',
-            borderRadius: 6,
-            cursor: canSave ? 'pointer' : 'not-allowed',
-            opacity: canSave ? 1 : 0.5,
-          }}
+          className="btn-primary full-width wd-save"
         >
           Save entry
         </button>
-        <button
-          type="button"
-          onClick={onSkip}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#6b7280',
-            textDecoration: 'underline',
-            fontSize: 13,
-            cursor: 'pointer',
-            padding: 6,
-          }}
-        >
+        <button type="button" onClick={onSkip} className="wd-skip">
           Skip &amp; save anyway
         </button>
       </div>

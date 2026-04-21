@@ -2,6 +2,35 @@ import { useState, useEffect, useCallback } from 'react';
 import '../mini-timer.css';
 import WorkDetailsModal from './WorkDetailsModal';
 
+const API_BASE = window.location.protocol === 'file:'
+  ? 'http://localhost:3001/api'
+  : '/api';
+
+function getEncouragement(hoursToday) {
+  const totalMinutes = Math.max(0, Math.round(hoursToday * 60));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+
+  if (hoursToday === 0) return { emoji: '👋', message: 'Ready when you are' };
+  if (hoursToday < 0.5) return { emoji: '🌱', message: 'Nice start to the day' };
+  if (hoursToday < 1) return { emoji: '☕', message: `Warming up — ${totalMinutes}m logged` };
+  if (hoursToday < 2) return { emoji: '✨', message: `Great momentum — ${h}h ${m}m logged` };
+  if (hoursToday < 4) return { emoji: '🎯', message: `Strong focus today — ${h}h ${m}m logged` };
+  if (hoursToday < 6) return { emoji: '🔥', message: `Deep work day — ${h}h ${m}m logged` };
+  return { emoji: '🏆', message: `Remarkable day — ${h}h ${m}m logged` };
+}
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  if (hours > 0) return `${hours}:${mm}:${ss}`;
+  return `${mm}:${ss}`;
+}
+
 export default function MiniTimer() {
   const [timerState, setTimerState] = useState({
     running: false,
@@ -17,22 +46,10 @@ export default function MiniTimer() {
   const [loading, setLoading] = useState(true);
   const [displayElapsed, setDisplayElapsed] = useState(0);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [hoursToday, setHoursToday] = useState(0);
 
-  // Derive a simpler status label for rendering decisions
-  const status = timerState.running
-    ? 'running'
-    : timerState.paused
-    ? 'paused'
-    : 'idle';
+  const status = timerState.running ? 'running' : timerState.paused ? 'paused' : 'idle';
   const isActive = status === 'running' || status === 'paused';
-
-  const formatTime = (ms) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  };
 
   const loadProjects = useCallback(async (uid) => {
     if (!uid) return;
@@ -45,6 +62,20 @@ export default function MiniTimer() {
       setProjects([]);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadHoursToday = useCallback(async (uid) => {
+    if (!uid) return;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await fetch(`${API_BASE}/users/${uid}/logs?from=${today}&to=${today}`);
+      if (!res.ok) return;
+      const logs = await res.json();
+      const sum = logs.reduce((acc, l) => acc + (Number(l.hours) || 0), 0);
+      setHoursToday(sum);
+    } catch (err) {
+      console.warn('Failed to load today hours:', err);
     }
   }, []);
 
@@ -68,12 +99,13 @@ export default function MiniTimer() {
     };
   }, []);
 
-  // Load projects whenever user becomes available
+  // Load projects + today totals when user resolves
   useEffect(() => {
     loadProjects(userId);
-  }, [userId, loadProjects]);
+    loadHoursToday(userId);
+  }, [userId, loadProjects, loadHoursToday]);
 
-  // Listen for live project changes (create/archive from main window)
+  // Live refresh on project changes from main window
   useEffect(() => {
     if (!userId) return;
     const off = window.electronAPI?.projects?.onChanged?.(() => {
@@ -84,6 +116,17 @@ export default function MiniTimer() {
     };
   }, [userId, loadProjects]);
 
+  // Live refresh of today total whenever a new entry is saved
+  useEffect(() => {
+    if (!userId) return;
+    const off = window.electronAPI?.entries?.onChanged?.(() => {
+      loadHoursToday(userId);
+    });
+    return () => {
+      if (typeof off === 'function') off();
+    };
+  }, [userId, loadHoursToday]);
+
   // Tick display every second while running
   useEffect(() => {
     if (!timerState.running) return;
@@ -93,13 +136,16 @@ export default function MiniTimer() {
     return () => clearInterval(interval);
   }, [timerState.running]);
 
-  const handleStartTimer = async () => {
+  const handleStart = async () => {
     if (!selectedProjectId || !userId) {
       alert('Please select a project first');
       return;
     }
     try {
-      const state = await window.electronAPI?.timer?.start(parseInt(selectedProjectId, 10), userId);
+      const state = await window.electronAPI?.timer?.start(
+        parseInt(selectedProjectId, 10),
+        userId
+      );
       setTimerState(state);
       setDisplayElapsed(state.elapsedMs || 0);
     } catch (error) {
@@ -107,7 +153,7 @@ export default function MiniTimer() {
     }
   };
 
-  const handlePauseTimer = async () => {
+  const handlePause = async () => {
     try {
       const state = await window.electronAPI?.timer?.pause();
       setTimerState(state);
@@ -117,7 +163,7 @@ export default function MiniTimer() {
     }
   };
 
-  const handleResumeTimer = async () => {
+  const handleResume = async () => {
     try {
       const state = await window.electronAPI?.timer?.resume();
       setTimerState(state);
@@ -127,9 +173,7 @@ export default function MiniTimer() {
     }
   };
 
-  const requestStop = () => {
-    setShowDetailsModal(true);
-  };
+  const requestStop = () => setShowDetailsModal(true);
 
   const finalizeStop = async (notesText) => {
     try {
@@ -144,15 +188,6 @@ export default function MiniTimer() {
     }
   };
 
-  const handleModalSave = (notesText) => finalizeStop(notesText);
-  const handleModalSkip = () => finalizeStop('');
-
-  const handleProjectChange = (e) => {
-    setSelectedProjectId(e.target.value);
-  };
-
-  const getStatusDot = () => (status === 'running' ? '#E31B54' : status === 'paused' ? '#D97706' : '#888');
-
   const getActiveProjectName = () => {
     const pid = timerState.projectId ?? (selectedProjectId ? parseInt(selectedProjectId, 10) : null);
     if (!pid) return 'Project';
@@ -160,146 +195,134 @@ export default function MiniTimer() {
     return project ? project.description : 'Project';
   };
 
-  const dropdownStyle = isActive
-    ? { opacity: 0.6, cursor: 'not-allowed', background: '#F3F4F6' }
-    : {};
-
-  const primaryBtnBase = {
-    minHeight: 44,
-    fontSize: 15,
-    fontWeight: 600,
-    color: '#fff',
-    border: 'none',
-    borderRadius: 6,
-    cursor: 'pointer',
-    padding: '8px 12px',
-    flex: 1,
-  };
+  const statusLabel = status === 'running' ? 'Tracking' : status === 'paused' ? 'Paused' : 'Ready';
+  const encouragement = getEncouragement(hoursToday);
 
   return (
     <div className="mini-timer-window">
       {/* Title Bar */}
       <div className="mini-timer-title-bar" style={{ WebkitAppRegion: 'drag' }}>
         <div className="title-bar-left">
-          <div className="status-dot" style={{ background: getStatusDot() }}></div>
+          <div className="brand-mark" aria-hidden="true">T</div>
           <span className="title-text">TLU Tracker</span>
         </div>
-        <div className="title-bar-right" style={{ WebkitAppRegion: 'no-drag' }}>
-          <button
-            className="title-btn"
-            onClick={() => window.electronAPI?.app?.minimizeMiniTimer()}
-            title="Minimize"
-          >
-            −
-          </button>
-          <button
-            className="title-btn"
-            onClick={() => window.electronAPI?.app?.hideMiniTimer()}
-            title="Hide to tray"
-          >
-            ×
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' }}>
+          <span className={`status-pill ${status}`} aria-live="polite">
+            <span className="status-dot" aria-hidden="true"></span>
+            {statusLabel}
+          </span>
+          <div className="title-bar-right">
+            <button
+              className="title-btn"
+              onClick={() => window.electronAPI?.app?.minimizeMiniTimer()}
+              title="Minimize"
+              aria-label="Minimize"
+            >
+              −
+            </button>
+            <button
+              className="title-btn"
+              onClick={() => window.electronAPI?.app?.hideMiniTimer()}
+              title="Hide to tray"
+              aria-label="Hide to tray"
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Body */}
       <div className="mini-timer-body">
-        {/* Project Dropdown */}
-        <div className="project-selector">
-          <select
-            value={selectedProjectId || ''}
-            onChange={handleProjectChange}
-            disabled={isActive || loading}
-            className="project-dropdown"
-            style={dropdownStyle}
-          >
-            <option value="">
-              {loading ? 'Loading projects...' : 'Select a project…'}
-            </option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.description}
+        {status === 'idle' ? (
+          <div className="project-selector">
+            <label htmlFor="mt-project" className="project-label">Which project?</label>
+            <select
+              id="mt-project"
+              value={selectedProjectId || ''}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              disabled={loading}
+              className="project-dropdown"
+            >
+              <option value="">
+                {loading ? 'Loading projects…' : 'Select a project…'}
               </option>
-            ))}
-          </select>
-          {isActive && (
-            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.description}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="active-project-display">
+            <span className="active-project-label">You're working on</span>
+            <span className="active-project-name">{getActiveProjectName()}</span>
+            <span className="dropdown-lock-caption">
               Locked during active session — stop to switch projects.
+            </span>
+          </div>
+        )}
+
+        {/* Decorative ring with elapsed time */}
+        <div className="ring-wrap">
+          <div className={`decorative-ring ${status}`} aria-hidden="true">
+            <div className="ring-inner">
+              <div className="elapsed-time" aria-live="off">{formatElapsed(displayElapsed)}</div>
+              <div className="elapsed-label">Elapsed</div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Timer Display */}
-        <div className="timer-display">
-          <span className="timer-value">{formatTime(displayElapsed)}</span>
-        </div>
-
-        {/* Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Buttons */}
+        <div className="buttons-row">
           {status === 'idle' && (
             <button
               type="button"
-              onClick={handleStartTimer}
-              style={{ ...primaryBtnBase, background: '#E31B54' }}
+              className="btn-primary full-width"
+              onClick={handleStart}
+              disabled={!selectedProjectId}
             >
-              Start
+              ▶ Start
             </button>
           )}
 
           {status === 'running' && (
             <>
-              <button
-                type="button"
-                onClick={handlePauseTimer}
-                style={{ ...primaryBtnBase, background: '#D97706' }}
-              >
-                Pause
+              <button type="button" className="btn-secondary" onClick={handlePause}>
+                ⏸ Pause
               </button>
-              <button
-                type="button"
-                onClick={requestStop}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#E31B54',
-                  textDecoration: 'underline',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  padding: 4,
-                  alignSelf: 'center',
-                }}
-              >
-                Stop &amp; Save
+              <button type="button" className="btn-primary compact" onClick={requestStop}>
+                ✓ Done
               </button>
             </>
           )}
 
           {status === 'paused' && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                onClick={handleResumeTimer}
-                style={{ ...primaryBtnBase, background: '#0F6E56' }}
-              >
-                Resume
+            <>
+              <button type="button" className="btn-resume compact" onClick={handleResume}>
+                ▶ Resume
               </button>
-              <button
-                type="button"
-                onClick={requestStop}
-                style={{ ...primaryBtnBase, background: '#E31B54' }}
-              >
-                Stop &amp; Save
+              <button type="button" className="btn-primary compact" onClick={requestStop}>
+                ✓ Done
               </button>
-            </div>
+            </>
           )}
         </div>
+      </div>
+
+      {/* Rotating encouragement footer */}
+      <div className="mini-timer-footer" aria-live="polite">
+        <span className="footer-emoji" aria-hidden="true">{encouragement.emoji}</span>
+        <span className="footer-message">{encouragement.message}</span>
       </div>
 
       {showDetailsModal && (
         <WorkDetailsModal
           projectName={getActiveProjectName()}
           elapsedMs={displayElapsed}
-          onSave={handleModalSave}
-          onSkip={handleModalSkip}
+          onSave={(notesText) => finalizeStop(notesText)}
+          onSkip={() => finalizeStop('')}
         />
       )}
     </div>

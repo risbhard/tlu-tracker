@@ -213,10 +213,10 @@ function createMiniTimerWindow() {
 
   const iconPath = getAppIconPath();
   miniTimerWindow = new BrowserWindow({
-    width: 280,
-    height: 260,
-    x: screenWidth - 300,
-    y: screenHeight - 200,
+    width: 300,
+    height: 460,
+    x: screenWidth - 320,
+    y: screenHeight - 480,
     alwaysOnTop: true,
     frame: false,
     resizable: false,
