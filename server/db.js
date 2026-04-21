@@ -1,7 +1,18 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const db = new Database(path.join(__dirname, '..', 'tlu-tracker.db'));
+const dbPath = process.env.TLU_DB_PATH || path.join(__dirname, '..', 'tlu-tracker.db');
+
+try {
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+} catch (e) {
+  // ignore
+}
+
+console.log(`[db] Opening database at ${dbPath}`);
+
+const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -71,6 +82,12 @@ try {
 
 try {
   db.prepare('ALTER TABLE users ADD COLUMN pin_prompt_shown INTEGER DEFAULT 0').run();
+} catch (e) {
+  // Column already exists, ignore error
+}
+
+try {
+  db.prepare("ALTER TABLE hour_logs ADD COLUMN method TEXT DEFAULT 'manual'").run();
 } catch (e) {
   // Column already exists, ignore error
 }

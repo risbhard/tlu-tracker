@@ -16,40 +16,39 @@ export default function Dashboard({ user, setUser, onDataChange }) {
 
   // Listen for time entry creation and timer state changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.electronAPI) {
-      // Listen for time entry created events
-      window.electronAPI?.timeEntry?.onCreated((data) => {
-        console.log('Time entry created:', data);
-        // Refresh dashboard data to show updated hours
-        setData((prev) => {
-          if (!prev) return prev;
-          // Recalculate totals based on new entry
-          const newData = { ...prev };
-          const hoursAdded = data.timeEntry.duration_seconds / 3600;
-          newData.total_used += hoursAdded;
-          newData.remaining = newData.total_allowed - newData.total_used;
-          
-          // Update category breakdown if available
-          if (newData.by_category) {
-            // In a real app, you'd want to properly track which category this belongs to
-            // For now, just update the totals
-          }
-          return newData;
-        });
-        // Trigger parent refresh to update projects list
-        onDataChange();
-      });
+    if (typeof window === 'undefined' || !window.electronAPI) return;
 
-      // Listen for timer state changes
-      window.electronAPI?.timer?.onStateChanged((state) => {
-        setTimerState(state);
+    const offTimeEntry = window.electronAPI?.timeEntry?.onCreated?.((data) => {
+      console.log('Time entry created:', data);
+      setData((prev) => {
+        if (!prev) return prev;
+        const newData = { ...prev };
+        const hoursAdded = data.timeEntry.duration_seconds / 3600;
+        newData.total_used += hoursAdded;
+        newData.remaining = newData.total_allowed - newData.total_used;
+        return newData;
       });
-    }
+      onDataChange();
+    });
+
+    const offState = window.electronAPI?.timer?.onStateChanged?.((state) => {
+      setTimerState(state);
+    });
+
+    const refreshDashboard = () => {
+      api.getDashboard(user.id).then(setData).catch(console.error);
+      onDataChange();
+    };
+    const offEntries = window.electronAPI?.entries?.onChanged?.(refreshDashboard);
+    const offProjects = window.electronAPI?.projects?.onChanged?.(refreshDashboard);
 
     return () => {
-      // Cleanup listeners if needed
+      if (typeof offTimeEntry === 'function') offTimeEntry();
+      if (typeof offState === 'function') offState();
+      if (typeof offEntries === 'function') offEntries();
+      if (typeof offProjects === 'function') offProjects();
     };
-  }, [onDataChange]);
+  }, [onDataChange, user.id]);
 
   // Handle click outside to close tooltip
   useEffect(() => {

@@ -43,6 +43,27 @@ export default function HourLog({ user, onDataChange }) {
     loadLogs();
   }, [filterProjectId, filterFrom, filterTo, user.id]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electronAPI) return;
+    const offEntries = window.electronAPI?.entries?.onChanged?.(() => {
+      loadLogs();
+      onDataChange && onDataChange();
+    });
+    const offProjects = window.electronAPI?.projects?.onChanged?.(() => {
+      api.getProjects(user.id).then((prjs) => {
+        const active = prjs.filter((p) => !p.archived);
+        setProjects(active);
+        const map = {};
+        active.forEach((p) => (map[p.id] = p));
+        setProjectMap(map);
+      });
+    });
+    return () => {
+      if (typeof offEntries === 'function') offEntries();
+      if (typeof offProjects === 'function') offProjects();
+    };
+  }, [user.id, onDataChange]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');

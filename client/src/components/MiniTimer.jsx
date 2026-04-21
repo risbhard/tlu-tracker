@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import '../mini-timer.css';
+import WorkDetailsModal from './WorkDetailsModal';
 
 export default function MiniTimer() {
   const [timerState, setTimerState] = useState({
@@ -11,12 +12,20 @@ export default function MiniTimer() {
   });
 
   const [projects, setProjects] = useState([]);
-  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [displayElapsed, setDisplayElapsed] = useState(0);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
-  // Format elapsed time as HH:MM:SS
+  // Derive a simpler status label for rendering decisions
+  const status = timerState.running
+    ? 'running'
+    : timerState.paused
+    ? 'paused'
+    : 'idle';
+  const isActive = status === 'running' || status === 'paused';
+
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -25,66 +34,62 @@ export default function MiniTimer() {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Initialize: get user ID and load projects
+  const loadProjects = useCallback(async (uid) => {
+    if (!uid) return;
+    try {
+      setLoading(true);
+      const activeProjects = await window.electronAPI?.projects?.getActive(uid);
+      setProjects(activeProjects || []);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initialize user + timer state listener
   useEffect(() => {
-    const initializeUser = () => {
-      // Try to get user ID from localStorage (set when user logs in to main app)
-      const storedUserId = localStorage.getItem('userId');
-      if (storedUserId) {
-        setUserId(parseInt(storedUserId, 10));
-      } else {
-        console.warn('No user ID found. Mini timer may not work properly.');
-        // For now, use a default for testing
-        setUserId(1);
-      }
-    };
-
-    initializeUser();
-
-    // Listen for timer state changes
-    if (window.electronAPI?.timer?.onStateChanged) {
-      window.electronAPI.timer.onStateChanged((state) => {
-        setTimerState(state);
-        setDisplayElapsed(state.elapsedMs || 0);
-      });
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) {
+      setUserId(parseInt(storedUserId, 10));
+    } else {
+      console.warn('No user ID found. Mini timer may not work properly.');
+      setUserId(1);
     }
 
+    const offState = window.electronAPI?.timer?.onStateChanged?.((state) => {
+      setTimerState(state);
+      setDisplayElapsed(state.elapsedMs || 0);
+    });
+
     return () => {
-      // Cleanup listeners if needed
+      if (typeof offState === 'function') offState();
     };
   }, []);
 
-  // Load active projects when userId changes
+  // Load projects whenever user becomes available
+  useEffect(() => {
+    loadProjects(userId);
+  }, [userId, loadProjects]);
+
+  // Listen for live project changes (create/archive from main window)
   useEffect(() => {
     if (!userId) return;
-
-    const loadProjects = async () => {
-      try {
-        setLoading(true);
-        const activeProjects = await window.electronAPI?.projects?.getActive(userId);
-        setProjects(activeProjects || []);
-        if (activeProjects && activeProjects.length > 0) {
-          setSelectedProjectId(activeProjects[0].id);
-        }
-      } catch (error) {
-        console.error('Failed to load projects:', error);
-        setProjects([]);
-      } finally {
-        setLoading(false);
-      }
+    const off = window.electronAPI?.projects?.onChanged?.(() => {
+      loadProjects(userId);
+    });
+    return () => {
+      if (typeof off === 'function') off();
     };
+  }, [userId, loadProjects]);
 
-    loadProjects();
-  }, [userId]);
-
-  // Update elapsed time display every second when timer is running
+  // Tick display every second while running
   useEffect(() => {
     if (!timerState.running) return;
-
     const interval = setInterval(() => {
       setDisplayElapsed((prev) => prev + 1000);
     }, 1000);
-
     return () => clearInterval(interval);
   }, [timerState.running]);
 
@@ -93,9 +98,8 @@ export default function MiniTimer() {
       alert('Please select a project first');
       return;
     }
-
     try {
-      const state = await window.electronAPI?.timer?.start(selectedProjectId, userId);
+      const state = await window.electronAPI?.timer?.start(parseInt(selectedProjectId, 10), userId);
       setTimerState(state);
       setDisplayElapsed(state.elapsedMs || 0);
     } catch (error) {
@@ -123,60 +127,61 @@ export default function MiniTimer() {
     }
   };
 
-  const handleStopTimer = async () => {
+  const requestStop = () => {
+    setShowDetailsModal(true);
+  };
+
+  const finalizeStop = async (notesText) => {
     try {
-      const state = await window.electronAPI?.timer?.stop();
+      const state = await window.electronAPI?.timer?.stop({ notes: notesText || '' });
       setTimerState(state);
       setDisplayElapsed(0);
-      setSelectedProjectId(projects.length > 0 ? projects[0].id : null);
+      setSelectedProjectId('');
     } catch (error) {
       console.error('Failed to stop timer:', error);
+    } finally {
+      setShowDetailsModal(false);
     }
   };
+
+  const handleModalSave = (notesText) => finalizeStop(notesText);
+  const handleModalSkip = () => finalizeStop('');
 
   const handleProjectChange = (e) => {
-    setSelectedProjectId(parseInt(e.target.value, 10));
+    setSelectedProjectId(e.target.value);
   };
 
-  const getButtonStyle = () => {
-    if (timerState.running) {
-      return { background: '#E31B54' }; // Magenta when running
-    } else if (timerState.paused) {
-      return { background: '#d97706' }; // Amber when paused
-    } else {
-      return { background: '#888' }; // Grey when idle
-    }
+  const getStatusDot = () => (status === 'running' ? '#E31B54' : status === 'paused' ? '#D97706' : '#888');
+
+  const getActiveProjectName = () => {
+    const pid = timerState.projectId ?? (selectedProjectId ? parseInt(selectedProjectId, 10) : null);
+    if (!pid) return 'Project';
+    const project = projects.find((p) => p.id === pid);
+    return project ? project.description : 'Project';
   };
 
-  const getButtonLabel = () => {
-    if (timerState.running) {
-      return 'PAUSE';
-    } else if (timerState.paused) {
-      return 'RESUME';
-    } else {
-      return 'START';
-    }
-  };
+  const dropdownStyle = isActive
+    ? { opacity: 0.6, cursor: 'not-allowed', background: '#F3F4F6' }
+    : {};
 
-  const getStatusDot = () => {
-    return timerState.running ? '#E31B54' : '#888';
-  };
-
-  const getSelectedProjectName = () => {
-    if (!selectedProjectId) return 'Select Project';
-    const project = projects.find((p) => p.id === selectedProjectId);
-    return project ? project.description : 'Select Project';
+  const primaryBtnBase = {
+    minHeight: 44,
+    fontSize: 15,
+    fontWeight: 600,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    padding: '8px 12px',
+    flex: 1,
   };
 
   return (
     <div className="mini-timer-window">
-      {/* Title Bar - Draggable */}
+      {/* Title Bar */}
       <div className="mini-timer-title-bar" style={{ WebkitAppRegion: 'drag' }}>
         <div className="title-bar-left">
-          <div
-            className="status-dot"
-            style={{ background: getStatusDot() }}
-          ></div>
+          <div className="status-dot" style={{ background: getStatusDot() }}></div>
           <span className="title-text">TLU Tracker</span>
         </div>
         <div className="title-bar-right" style={{ WebkitAppRegion: 'no-drag' }}>
@@ -189,26 +194,26 @@ export default function MiniTimer() {
           </button>
           <button
             className="title-btn"
-            onClick={() => window.close()}
-            title="Close"
+            onClick={() => window.electronAPI?.app?.hideMiniTimer()}
+            title="Hide to tray"
           >
             ×
           </button>
         </div>
       </div>
 
-      {/* Main Widget Body */}
       <div className="mini-timer-body">
         {/* Project Dropdown */}
         <div className="project-selector">
           <select
             value={selectedProjectId || ''}
             onChange={handleProjectChange}
-            disabled={timerState.running || loading}
+            disabled={isActive || loading}
             className="project-dropdown"
+            style={dropdownStyle}
           >
             <option value="">
-              {loading ? 'Loading projects...' : 'Select Project'}
+              {loading ? 'Loading projects...' : 'Select a project…'}
             </option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -216,6 +221,11 @@ export default function MiniTimer() {
               </option>
             ))}
           </select>
+          {isActive && (
+            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+              Locked during active session — stop to switch projects.
+            </div>
+          )}
         </div>
 
         {/* Timer Display */}
@@ -223,33 +233,75 @@ export default function MiniTimer() {
           <span className="timer-value">{formatTime(displayElapsed)}</span>
         </div>
 
-        {/* Control Button */}
-        <div className="control-button-container">
-          <button
-            className="control-button"
-            style={getButtonStyle()}
-            onClick={() => {
-              if (timerState.running) {
-                handlePauseTimer();
-              } else if (timerState.paused) {
-                handleResumeTimer();
-              } else {
-                handleStartTimer();
-              }
-            }}
-            title={getButtonLabel()}
-          >
-            {getButtonLabel()}
-          </button>
-        </div>
+        {/* Controls */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {status === 'idle' && (
+            <button
+              type="button"
+              onClick={handleStartTimer}
+              style={{ ...primaryBtnBase, background: '#E31B54' }}
+            >
+              Start
+            </button>
+          )}
 
-        {/* Stop & Save Button */}
-        {(timerState.running || timerState.paused) && (
-          <button className="stop-save-btn" onClick={handleStopTimer}>
-            Stop & Save
-          </button>
-        )}
+          {status === 'running' && (
+            <>
+              <button
+                type="button"
+                onClick={handlePauseTimer}
+                style={{ ...primaryBtnBase, background: '#D97706' }}
+              >
+                Pause
+              </button>
+              <button
+                type="button"
+                onClick={requestStop}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#E31B54',
+                  textDecoration: 'underline',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  padding: 4,
+                  alignSelf: 'center',
+                }}
+              >
+                Stop &amp; Save
+              </button>
+            </>
+          )}
+
+          {status === 'paused' && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={handleResumeTimer}
+                style={{ ...primaryBtnBase, background: '#0F6E56' }}
+              >
+                Resume
+              </button>
+              <button
+                type="button"
+                onClick={requestStop}
+                style={{ ...primaryBtnBase, background: '#E31B54' }}
+              >
+                Stop &amp; Save
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {showDetailsModal && (
+        <WorkDetailsModal
+          projectName={getActiveProjectName()}
+          elapsedMs={displayElapsed}
+          onSave={handleModalSave}
+          onSkip={handleModalSkip}
+        />
+      )}
     </div>
   );
 }

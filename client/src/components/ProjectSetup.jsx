@@ -22,35 +22,43 @@ export default function ProjectSetup({ user, onDataChange }) {
 
   // Listen for time entry creation and timer state changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.electronAPI) {
-      // Listen for time entry created events and update projects list
-      window.electronAPI?.timeEntry?.onCreated((data) => {
-        console.log('Time entry created for project:', data.projectId);
-        // Update the specific project's hours logged
-        setProjects((prev) =>
-          prev.map((project) => {
-            if (project.id === data.projectId) {
-              const hoursAdded = data.timeEntry.duration_seconds / 3600;
-              return {
-                ...project,
-                hours_logged: (project.hours_logged || 0) + hoursAdded,
-              };
-            }
-            return project;
-          })
-        );
-        // Trigger parent refresh
-        onDataChange();
-      });
+    if (typeof window === 'undefined' || !window.electronAPI) return;
 
-      // Listen for timer state changes
-      window.electronAPI?.timer?.onStateChanged((state) => {
-        setTimerState(state);
-      });
-    }
+    const offTimeEntry = window.electronAPI?.timeEntry?.onCreated?.((data) => {
+      console.log('Time entry created for project:', data.projectId);
+      setProjects((prev) =>
+        prev.map((project) => {
+          if (project.id === data.projectId) {
+            const hoursAdded = data.timeEntry.duration_seconds / 3600;
+            return {
+              ...project,
+              hours_logged: (project.hours_logged || 0) + hoursAdded,
+            };
+          }
+          return project;
+        })
+      );
+      onDataChange();
+    });
+
+    const offState = window.electronAPI?.timer?.onStateChanged?.((state) => {
+      setTimerState(state);
+    });
+
+    const offEntries = window.electronAPI?.entries?.onChanged?.(() => {
+      loadProjects();
+      onDataChange();
+    });
+
+    const offProjects = window.electronAPI?.projects?.onChanged?.(() => {
+      loadProjects();
+    });
 
     return () => {
-      // Cleanup listeners if needed
+      if (typeof offTimeEntry === 'function') offTimeEntry();
+      if (typeof offState === 'function') offState();
+      if (typeof offEntries === 'function') offEntries();
+      if (typeof offProjects === 'function') offProjects();
     };
   }, [onDataChange]);
 
@@ -102,6 +110,7 @@ export default function ProjectSetup({ user, onDataChange }) {
       setHoursPerTlu('128');
       await loadProjects();
       onDataChange();
+      window.electronAPI?.projects?.notifyChanged?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -114,6 +123,7 @@ export default function ProjectSetup({ user, onDataChange }) {
       await api.archiveProject(projectId);
       await loadProjects();
       onDataChange();
+      window.electronAPI?.projects?.notifyChanged?.();
     } catch (err) {
       setError(err.message);
     }
