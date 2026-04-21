@@ -34,15 +34,25 @@
     "appId": "com.tlutracker.app",
     "productName": "TLU Tracker",
     "files": [
-      "dist/**/*",
+      "!dist",
+      "client/dist/**/*",
       "electron/**/*",
+      "server/**/*",
+      "assets/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*",
+      "**/*.node"
     ],
     "directories": {
       "buildResources": "assets"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": ["nsis", "portable"],
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,

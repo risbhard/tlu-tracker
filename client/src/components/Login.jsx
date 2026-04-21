@@ -125,7 +125,7 @@ export default function Login({ onLogin }) {
       <div
         className="left-panel"
         style={{
-          backgroundImage: "url('/Images/campus-klo.jpg')",
+          backgroundImage: "url('./Images/campus-klo.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -135,7 +135,7 @@ export default function Login({ onLogin }) {
         <div className="left-panel-content">
           <div className="left-brand-logo">
             <div className="logo-card">
-              <img src="/Images/oc-hall-logo.png" alt="Okanagan College Hall School of Business logo" />
+              <img src="./Images/oc-hall-logo.png" alt="Okanagan College Hall School of Business logo" />
             </div>
           </div>
           <h1>TLU Tracker</h1>

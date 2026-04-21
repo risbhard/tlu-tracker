@@ -1,4 +1,5 @@
-const API_BASE = '/api';
+const isElectronProd = window.location.protocol === 'file:';
+const API_BASE = isElectronProd ? 'http://localhost:3001/api' : '/api';
 
 async function request(url, options = {}) {
   const res = await fetch(`${API_BASE}${url}`, {

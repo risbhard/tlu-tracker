@@ -3,3 +3,7 @@ dist/
 *.db
 *.db-wal
 *.db-shm
+*.zip
+node_modules/
+dist/
+release/

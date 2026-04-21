@@ -24,6 +24,11 @@ function App() {
           <p>Teaching Load Unit Hour Tracking</p>
         </div>
         <div className="header-right">
+          {window.electronAPI && (
+            <button className="btn btn-outline" onClick={() => window.electronAPI.app.showMiniTimer()} title="Open Mini Timer">
+              Mini Timer
+            </button>
+          )}
           <span className="user-name">{user.name}</span>
           <button className="btn btn-outline" onClick={() => setUser(null)}>Log Out</button>
         </div>
