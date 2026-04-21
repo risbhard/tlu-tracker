@@ -125,7 +125,7 @@ jobs:
             TLU Tracker ${{ github.ref_name }}
 
             Download the appropriate installer for your platform:
-- **Windows**: `.exe` (portable, no admin rights needed)
+            - **Windows**: `.exe` (portable, no admin rights needed)
             - **Mac**: `.dmg`
           files: |
             artifacts/windows/*.exe
