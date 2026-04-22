@@ -50,4 +50,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
     minimizeMiniTimer: () => ipcRenderer.invoke('app:minimizeMiniTimer'),
     hideMiniTimer: () => ipcRenderer.invoke('app:hideMiniTimer'),
   },
+
+  // Window IPC
+  window: {
+    openDashboard: () => ipcRenderer.invoke('window:openDashboard'),
+  },
+
+  // Session IPC
+  session: {
+    setCurrentUser: (userId) => ipcRenderer.invoke('session:setCurrentUser', userId),
+  },
+});
+
+// Generic bridge for the mini timer window so its React code can call
+// window.electron.invoke / on / off for the new session + projects events.
+contextBridge.exposeInMainWorld('electron', {
+  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  on: (channel, listener) => {
+    const wrapped = (_event, ...args) => listener(_event, ...args);
+    ipcRenderer.on(channel, wrapped);
+    return wrapped;
+  },
+  off: (channel, listener) => {
+    ipcRenderer.removeListener(channel, listener);
+  },
 });

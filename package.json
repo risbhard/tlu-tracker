@@ -47,6 +47,13 @@
       "node_modules/file-uri-to-path/**/*",
       "**/*.node"
     ],
+    "extraResources": [
+      {
+        "from": "client/public/Images",
+        "to": "Images",
+        "filter": ["tray-icon*.ico", "tray-icon*.png"]
+      }
+    ],
     "directories": {
       "buildResources": "assets"
     },

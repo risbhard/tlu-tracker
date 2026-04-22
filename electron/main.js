@@ -124,6 +124,11 @@ let timerState = {
   suspendTime: null, // when system suspended
 };
 
+// Active session user — set after successful login, cleared on logout. The
+// mini timer and all "current-user" queries in main must use this rather
+// than any captured ID, so switching users refreshes their projects.
+let currentUserId = null;
+
 let mainWindow;
 let miniTimerWindow;
 let tray;
@@ -151,12 +156,19 @@ function getAppIconPath() {
 }
 
 function getTrayIconPath() {
-  const candidates = [];
-  if (process.platform === 'win32') {
-    candidates.push(path.join(__dirname, '..', 'assets', 'icon.ico'));
-  }
-  candidates.push(path.join(__dirname, '..', 'assets', 'tray-icon.png'));
-  candidates.push(path.join(__dirname, '..', 'assets', 'icon.png'));
+  // Tray icons live in client/public/Images so they're already part of the
+  // renderer's public assets. In a packaged build they are copied into
+  // resources/Images via electron-builder's extraResources config.
+  const iconFileName =
+    process.platform === 'win32' ? 'tray-icon.ico' : 'tray-iconTemplate.png';
+
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, 'Images', iconFileName)]
+    : [
+        path.join(__dirname, '..', 'client', 'public', 'Images', iconFileName),
+        path.join(__dirname, '..', 'assets', 'tray-icon.png'),
+        path.join(__dirname, '..', 'assets', 'icon.png'),
+      ];
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
   }
@@ -188,13 +200,18 @@ function createMainWindow() {
     mainWindow.webContents.openDevTools();
   }
 
+  // Closing the main window hides it to the tray rather than quitting.
+  // A real quit only happens via the tray "Quit" item or Cmd/Ctrl+Q, which
+  // both set app.isQuitting first.
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // Closing the main dashboard is one of the two documented ways to fully
-    // quit the app (the other is the tray "Quit" item). Without this, the
-    // tray + hidden widget would keep the process alive.
-    app.isQuitting = true;
-    app.quit();
   });
 
   return mainWindow;
@@ -278,29 +295,6 @@ function hideWidget() {
   }
 }
 
-function toggleWidget() {
-  if (!miniTimerWindow || miniTimerWindow.isDestroyed()) {
-    createMiniTimerWindow();
-    return;
-  }
-  const hiddenOrMinimized = !miniTimerWindow.isVisible() || miniTimerWindow.isMinimized();
-  if (hiddenOrMinimized) {
-    showWidget();
-  } else {
-    hideWidget();
-  }
-}
-
-function showMainWindow() {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    createMainWindow();
-    return;
-  }
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
-}
-
 function createTray() {
   const iconPath = getTrayIconPath();
   let trayImage;
@@ -320,6 +314,10 @@ function createTray() {
     trayImage = null;
   }
 
+  if (!iconPath) {
+    console.warn('[tray] Icon not found at expected path; falling back to empty image.');
+  }
+
   try {
     tray = new Tray(trayImage && !trayImage.isEmpty() ? trayImage : nativeImage.createEmpty());
   } catch (err) {
@@ -328,11 +326,31 @@ function createTray() {
   }
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show Widget', click: () => showWidget() },
-    { label: 'Show Dashboard', click: () => showMainWindow() },
+    {
+      label: 'Show Mini Timer',
+      click: () => {
+        if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+          miniTimerWindow.show();
+          miniTimerWindow.focus();
+        } else {
+          createMiniTimerWindow();
+        }
+      },
+    },
+    {
+      label: 'Open Dashboard',
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show();
+          mainWindow.focus();
+        } else {
+          createMainWindow();
+        }
+      },
+    },
     { type: 'separator' },
     {
-      label: 'Quit',
+      label: 'Quit TLU Tracker',
       click: () => {
         app.isQuitting = true;
         app.quit();
@@ -343,9 +361,21 @@ function createTray() {
   tray.setContextMenu(contextMenu);
   tray.setToolTip('TLU Tracker');
 
-  // Left-click (Windows/Linux) toggles widget visibility. On macOS a single
-  // click normally opens the menu; we also wire 'click' for consistency.
-  tray.on('click', () => toggleWidget());
+  // Single click on tray toggles the mini timer window.
+  tray.on('click', () => {
+    if (
+      miniTimerWindow &&
+      !miniTimerWindow.isDestroyed() &&
+      miniTimerWindow.isVisible()
+    ) {
+      miniTimerWindow.hide();
+    } else if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+      miniTimerWindow.show();
+      miniTimerWindow.focus();
+    } else {
+      createMiniTimerWindow();
+    }
+  });
   tray.on('double-click', () => showWidget());
 
   return tray;
@@ -665,17 +695,79 @@ ipcMain.handle('timer:getState', (event) => {
   return getTimerState();
 });
 
-ipcMain.handle('projects:getActive', async (event, userId) => {
+function fetchProjectsForUser(userId) {
+  if (!userId) return [];
+  if (!db) return [];
   try {
-    const response = await fetch(`http://localhost:3001/api/users/${userId}/projects`);
+    return db
+      .prepare(
+        'SELECT * FROM projects WHERE user_id = ? AND archived = 0 ORDER BY description'
+      )
+      .all(userId);
+  } catch (err) {
+    console.error('[projects] db query failed:', err.message);
+    return [];
+  }
+}
+
+ipcMain.handle('projects:getActive', async (event, userId) => {
+  // Prefer the active session user over any ID passed in by the renderer —
+  // a stale userId from a previous session would otherwise leak projects
+  // across account switches.
+  const uid = currentUserId || userId;
+  if (!uid) return [];
+  try {
+    const response = await fetch(`http://localhost:3001/api/users/${uid}/projects`);
     if (response.ok) {
       const projects = await response.json();
-      return projects.filter(p => !p.archived);
+      return projects.filter((p) => !p.archived);
     }
   } catch (error) {
     console.warn('Failed to fetch projects from API:', error);
   }
-  return [];
+  return fetchProjectsForUser(uid);
+});
+
+ipcMain.handle('timer:getProjects', () => {
+  return fetchProjectsForUser(currentUserId);
+});
+
+ipcMain.handle('session:setCurrentUser', (_event, userId) => {
+  currentUserId = userId || null;
+
+  // Reset any in-memory timer state tied to the previous user.
+  timerState = {
+    running: false,
+    paused: false,
+    projectId: null,
+    userId: null,
+    startTime: null,
+    pausedDurationMs: 0,
+    elapsedMs: 0,
+    lockTime: null,
+    suspendTime: null,
+  };
+  idleWarningShown = false;
+
+  // Push fresh projects + cleared timer state to the mini timer so the
+  // dropdown flips immediately rather than waiting for a reload.
+  if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+    const projects = fetchProjectsForUser(currentUserId);
+    miniTimerWindow.webContents.send('projects:changed', projects);
+    miniTimerWindow.webContents.send('timer:state-changed', getTimerState());
+  }
+  return { success: true };
+});
+
+ipcMain.handle('window:openDashboard', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  } else {
+    createMainWindow();
+  }
+  return { success: true };
 });
 
 ipcMain.handle('timer:reconcile', (event, { amount, unit }) => {

@@ -12,8 +12,43 @@ function App() {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
+  // Tell the Electron main process which user is active so the mini timer
+  // dropdown, timer state, and any future "current user" queries can switch
+  // cleanly when a different person logs in.
+  const handleLogin = (loggedInUser) => {
+    try {
+      window.electron?.invoke?.('session:setCurrentUser', loggedInUser?.id ?? null);
+      window.electronAPI?.session?.setCurrentUser?.(loggedInUser?.id ?? null);
+    } catch (err) {
+      console.warn('[session] setCurrentUser(login) failed:', err);
+    }
+    if (loggedInUser?.id != null) {
+      try {
+        localStorage.setItem('userId', String(loggedInUser.id));
+      } catch {
+        // ignore
+      }
+    }
+    setUser(loggedInUser);
+  };
+
+  const handleLogout = () => {
+    try {
+      window.electron?.invoke?.('session:setCurrentUser', null);
+      window.electronAPI?.session?.setCurrentUser?.(null);
+    } catch (err) {
+      console.warn('[session] setCurrentUser(logout) failed:', err);
+    }
+    try {
+      localStorage.removeItem('userId');
+    } catch {
+      // ignore
+    }
+    setUser(null);
+  };
+
   if (!user) {
-    return <Login onLogin={setUser} />;
+    return <Login onLogin={handleLogin} />;
   }
 
   return (
@@ -30,7 +65,7 @@ function App() {
             </button>
           )}
           <span className="user-name">{user.name}</span>
-          <button className="btn btn-outline" onClick={() => setUser(null)}>Log Out</button>
+          <button className="btn btn-outline" onClick={handleLogout}>Log Out</button>
         </div>
       </header>
 
@@ -57,7 +92,13 @@ function App() {
 
       <main className="app-main">
         {view === 'dashboard' && (
-          <Dashboard key={`dash-${refreshKey}`} user={user} setUser={setUser} onDataChange={refresh} />
+          <Dashboard
+            key={`dash-${refreshKey}`}
+            user={user}
+            setUser={setUser}
+            onDataChange={refresh}
+            onNavigate={setView}
+          />
         )}
         {view === 'projects' && (
           <ProjectSetup key={`proj-${refreshKey}`} user={user} onDataChange={refresh} />

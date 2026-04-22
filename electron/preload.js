@@ -62,4 +62,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     hideMiniTimer: () => ipcRenderer.invoke('app:hideMiniTimer'),
     showMiniTimer: () => ipcRenderer.invoke('app:showMiniTimer'),
   },
+
+  // Session IPC
+  session: {
+    setCurrentUser: (userId) => ipcRenderer.invoke('session:setCurrentUser', userId),
+  },
+
+  // Window IPC
+  window: {
+    openDashboard: () => ipcRenderer.invoke('window:openDashboard'),
+  },
+});
+
+// Lightweight generic bridge so components can call
+// window.electron.invoke(channel, ...args) for the handful of new channels
+// the spec references (session:setCurrentUser, window:openDashboard, etc.)
+// without having to thread every one through the namespaced electronAPI.
+contextBridge.exposeInMainWorld('electron', {
+  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  on: (channel, listener) => {
+    const wrapped = (_event, ...args) => listener(_event, ...args);
+    ipcRenderer.on(channel, wrapped);
+    return wrapped;
+  },
+  off: (channel, listener) => {
+    ipcRenderer.removeListener(channel, listener);
+  },
 });

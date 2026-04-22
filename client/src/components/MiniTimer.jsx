@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Play, Pause, Square, Maximize2 } from 'lucide-react';
 import '../mini-timer.css';
 import WorkDetailsModal from './WorkDetailsModal';
 
@@ -105,14 +106,28 @@ export default function MiniTimer() {
     loadHoursToday(userId);
   }, [userId, loadProjects, loadHoursToday]);
 
-  // Live refresh on project changes from main window
+  // Live refresh on project changes from main window. The main process now
+  // pushes the project list as the payload (fresh set for the current user
+  // after a login/logout) — fall back to reloading from the API if the
+  // payload is missing for backward compatibility with older events.
   useEffect(() => {
-    if (!userId) return;
-    const off = window.electronAPI?.projects?.onChanged?.(() => {
-      loadProjects(userId);
-    });
+    const handler = (_event, payload) => {
+      if (Array.isArray(payload)) {
+        setProjects(payload);
+        // Drop any stale selection that belongs to the previous user.
+        setSelectedProjectId('');
+        setLoading(false);
+      } else if (userId) {
+        loadProjects(userId);
+      }
+    };
+    const genericOff = window.electron?.on?.('projects:changed', handler);
+    const off = window.electronAPI?.projects?.onChanged?.((data) => handler(null, data));
     return () => {
       if (typeof off === 'function') off();
+      if (genericOff && window.electron?.off) {
+        window.electron.off('projects:changed', genericOff);
+      }
     };
   }, [userId, loadProjects]);
 
@@ -213,6 +228,20 @@ export default function MiniTimer() {
           </span>
           <div className="title-bar-right">
             <button
+              className="title-btn mini-timer-maximize-btn"
+              onClick={() => {
+                if (window.electron?.invoke) {
+                  window.electron.invoke('window:openDashboard');
+                } else {
+                  window.electronAPI?.app?.openMainWindow?.();
+                }
+              }}
+              title="Open full dashboard"
+              aria-label="Open full dashboard"
+            >
+              <Maximize2 size={14} />
+            </button>
+            <button
               className="title-btn"
               onClick={() => window.electronAPI?.app?.minimizeMiniTimer()}
               title="Minimize"
@@ -264,47 +293,106 @@ export default function MiniTimer() {
           </div>
         )}
 
-        {/* Decorative ring with elapsed time */}
+        {/* Fixed ring dial with a rotating red dot around the circumference */}
         <div className="ring-wrap">
-          <div className={`decorative-ring ${status}`} aria-hidden="true">
-            <div className="ring-inner">
-              <div className="elapsed-time" aria-live="off">{formatElapsed(displayElapsed)}</div>
-              <div className="elapsed-label">Elapsed</div>
-            </div>
-          </div>
+          <svg
+            className="timer-dial"
+            viewBox="0 0 100 100"
+            width="140"
+            height="140"
+            aria-hidden="true"
+          >
+            <circle
+              cx="50"
+              cy="50"
+              r="42"
+              fill="none"
+              stroke="#E5E7EB"
+              strokeWidth="4"
+            />
+            <g className={`timer-dot-rotator ${status === 'running' ? 'spinning' : ''}`}>
+              <circle cx="50" cy="8" r="5" fill="#E31B54" />
+            </g>
+            <text
+              x="50"
+              y="52"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="timer-dial-text"
+              fill="#3C3C3C"
+            >
+              {formatElapsed(displayElapsed)}
+            </text>
+            <text
+              x="50"
+              y="66"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="timer-dial-label"
+              fill="#9B7560"
+            >
+              ELAPSED
+            </text>
+          </svg>
         </div>
 
-        {/* Buttons */}
+        {/* Icon buttons — same state machine as before, just icons not text */}
         <div className="buttons-row">
           {status === 'idle' && (
             <button
               type="button"
-              className="btn-primary full-width"
+              className="btn-primary full-width icon-btn"
               onClick={handleStart}
               disabled={!selectedProjectId}
+              aria-label="Start timer"
+              title="Start timer"
             >
-              ▶ Start
+              <Play size={20} />
             </button>
           )}
 
           {status === 'running' && (
             <>
-              <button type="button" className="btn-secondary" onClick={handlePause}>
-                ⏸ Pause
+              <button
+                type="button"
+                className="btn-pause icon-btn"
+                onClick={handlePause}
+                aria-label="Pause timer"
+                title="Pause timer"
+              >
+                <Pause size={20} />
               </button>
-              <button type="button" className="btn-primary compact" onClick={requestStop}>
-                ✓ Done
+              <button
+                type="button"
+                className="btn-primary compact icon-btn"
+                onClick={requestStop}
+                aria-label="Stop and save"
+                title="Stop and save"
+              >
+                <Square size={18} />
               </button>
             </>
           )}
 
           {status === 'paused' && (
             <>
-              <button type="button" className="btn-resume compact" onClick={handleResume}>
-                ▶ Resume
+              <button
+                type="button"
+                className="btn-resume compact icon-btn"
+                onClick={handleResume}
+                aria-label="Resume timer"
+                title="Resume timer"
+              >
+                <Play size={20} />
               </button>
-              <button type="button" className="btn-primary compact" onClick={requestStop}>
-                ✓ Done
+              <button
+                type="button"
+                className="btn-primary compact icon-btn"
+                onClick={requestStop}
+                aria-label="Stop and save"
+                title="Stop and save"
+              >
+                <Square size={18} />
               </button>
             </>
           )}

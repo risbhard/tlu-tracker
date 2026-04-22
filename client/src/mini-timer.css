@@ -259,85 +259,45 @@ body {
   line-height: 1.2;
 }
 
-/* Decorative ring */
+/* Timer dial — fixed ring with a rotating red dot on the circumference.
+   The ring, centre digits, and SVG root are all stationary; ONLY the
+   <g class="timer-dot-rotator"> element spins. */
 .ring-wrap {
   display: flex;
   justify-content: center;
   margin: 18px 0;
 }
 
-.decorative-ring {
-  width: 140px;
-  height: 140px;
-  border-radius: 50%;
-  padding: 4px;
-  background: conic-gradient(
-    from 0deg,
-    var(--accent-magenta) 0deg,
-    var(--accent-magenta) 90deg,
-    var(--bg-cream-deeper) 90deg,
-    var(--bg-cream-deeper) 360deg
-  );
-  animation: slowSpin 12s linear infinite;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 18px -8px rgba(180, 80, 40, 0.25);
+.timer-dial {
+  display: block;
+  filter: drop-shadow(0 6px 12px rgba(180, 80, 40, 0.12));
 }
 
-.decorative-ring.paused {
-  animation-play-state: paused;
-  background: conic-gradient(
-    from 0deg,
-    var(--accent-amber) 0deg,
-    var(--accent-amber) 90deg,
-    var(--bg-cream-deeper) 90deg,
-    var(--bg-cream-deeper) 360deg
-  );
+.timer-dot-rotator {
+  transform-origin: 50% 50%;
 }
 
-.decorative-ring.idle {
-  animation-play-state: paused;
-  background: conic-gradient(
-    from 0deg,
-    var(--bg-cream-deeper) 0deg,
-    var(--bg-cream-deeper) 360deg
-  );
+.timer-dot-rotator.spinning {
+  animation: tlu-spin 6s linear infinite;
 }
 
-@keyframes slowSpin {
-  to { transform: rotate(360deg); }
+@keyframes tlu-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
-.ring-inner {
-  width: 100%;
-  height: 100%;
-  background: var(--bg-cream);
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-.elapsed-time {
-  font-family: 'Manrope', sans-serif;
+.timer-dial-text {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 14px;
   font-weight: 700;
-  font-size: 28px;
-  color: var(--text-warm-dark);
   letter-spacing: -0.02em;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
 }
 
-.elapsed-label {
+.timer-dial-label {
   font-family: 'Manrope', sans-serif;
+  font-size: 5px;
   font-weight: 600;
-  font-size: 10px;
-  color: var(--text-warm-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.15em;
 }
 
 /* Buttons row */
@@ -423,9 +383,58 @@ body {
   font-size: 13px;
 }
 
+/* Pause icon button (amber) — sits beside Stop when the timer is running */
+.btn-pause {
+  background: var(--accent-amber);
+  color: #fff;
+  min-height: 44px;
+  padding: 12px 22px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.btn-pause:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.4);
+}
+
+/* Icon-only buttons: keep 44px min hit area, square-ish padding */
+.icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 12px 18px;
+}
+
+.icon-btn.full-width {
+  width: 100%;
+}
+
+/* Maximize icon button in the title bar — transparent on the cream bar,
+   still shares title-btn hover so it matches the others visually. */
+.mini-timer-maximize-btn {
+  color: var(--text-warm-muted);
+  border-radius: 4px;
+}
+
+.mini-timer-maximize-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-warm-dark);
+}
+
 .btn-primary:focus-visible,
 .btn-secondary:focus-visible,
 .btn-resume:focus-visible,
+.btn-pause:focus-visible,
 .project-dropdown:focus-visible,
 .title-btn:focus-visible {
   outline: 3px solid var(--accent-magenta-soft);

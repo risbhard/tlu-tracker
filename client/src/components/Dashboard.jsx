@@ -2,13 +2,70 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import ProgressBar from './ProgressBar';
 
-export default function Dashboard({ user, setUser, onDataChange }) {
+function formatLiveElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSeconds % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+}
+
+function ProgressRing({ used, allowed }) {
+  const pct = allowed > 0 ? Math.min((used / allowed) * 100, 100) : 0;
+  const radius = 70;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (pct / 100) * circumference;
+  return (
+    <div className="progress-ring-wrap">
+      <svg width="180" height="180" viewBox="0 0 180 180" aria-hidden="true">
+        <circle
+          cx="90"
+          cy="90"
+          r={radius}
+          fill="none"
+          stroke="#E5E7EB"
+          strokeWidth="12"
+        />
+        <circle
+          cx="90"
+          cy="90"
+          r={radius}
+          fill="none"
+          stroke="#E31B54"
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+          transform="rotate(-90 90 90)"
+        />
+      </svg>
+      <div className="progress-ring-center">
+        <div className="progress-ring-hours">
+          {used.toFixed(1)} of {allowed}
+        </div>
+        <div className="progress-ring-unit">hours</div>
+        <div className="progress-ring-pct">{pct.toFixed(0)}% of release used</div>
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
   const [data, setData] = useState(null);
   const [openTooltip, setOpenTooltip] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [loadingButtons, setLoadingButtons] = useState({});
   const [timerState, setTimerState] = useState(null);
+  const [liveElapsed, setLiveElapsed] = useState(0);
   const tooltipRef = useRef(null);
+
+  // Mirror the mini timer's elapsed time — tick once per second while running
+  useEffect(() => {
+    setLiveElapsed(timerState?.elapsedMs || 0);
+    if (!timerState?.running) return;
+    const id = setInterval(() => setLiveElapsed((v) => v + 1000), 1000);
+    return () => clearInterval(id);
+  }, [timerState?.running, timerState?.elapsedMs]);
 
   useEffect(() => {
     api.getDashboard(user.id).then(setData).catch(console.error);
@@ -110,19 +167,69 @@ export default function Dashboard({ user, setUser, onDataChange }) {
   const barColor = pct >= 90 ? 'red' : pct >= 70 ? 'yellow' : 'green';
   const valueClass = pct >= 90 ? 'danger' : pct >= 70 ? 'warning' : '';
 
+  const timerStatus = timerState?.running
+    ? 'Running'
+    : timerState?.paused
+    ? 'Paused'
+    : 'Idle';
+  const liveProjectName =
+    timerState?.projectId
+      ? data.by_project.find((p) => p.id === timerState.projectId)?.description ||
+        `Project ${timerState.projectId}`
+      : null;
+
   return (
     <div ref={tooltipRef}>
-      {/* Timer Running Indicator */}
-      {timerState?.running && (
-        <div className="panel timer-indicator" style={{ background: '#fff8f9', borderLeft: '4px solid #E31B54', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '12px', height: '12px', background: '#E31B54', borderRadius: '50%', animation: 'pulse 1s infinite' }}></div>
-            <span style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
-              ⏱️ Timer running on {getProjectName(timerState.projectId)}
+      {/* Expanded dashboard header: progress ring + live timer mirror */}
+      <div className="dashboard-grid">
+        <div className="panel dashboard-card progress-ring-card">
+          <h2>Release Progress</h2>
+          <ProgressRing used={data.total_used} allowed={data.total_allowed} />
+        </div>
+
+        <div className="panel dashboard-card live-timer-card">
+          <div className="live-timer-head">
+            <h2>Live Timer</h2>
+            <button
+              type="button"
+              className="icon-link"
+              onClick={() => onNavigate?.('projects')}
+              aria-label="Open settings"
+              title="Settings"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+          </div>
+          <div className="live-timer-display">{formatLiveElapsed(liveElapsed)}</div>
+          <div className="live-timer-meta">
+            <span className={`live-timer-status live-timer-status-${timerStatus.toLowerCase()}`}>
+              {timerStatus}
+            </span>
+            <span className="live-timer-project">
+              {liveProjectName || 'No active project'}
             </span>
           </div>
+          <div className="live-timer-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => onNavigate?.('log')}
+            >
+              + Manual Entry
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => onNavigate?.('log')}
+            >
+              View full history
+            </button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Stats row */}
       <div className="stats-row">

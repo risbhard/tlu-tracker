@@ -1215,3 +1215,166 @@ body {
     align-self: flex-start;
   }
 }
+
+/* Expanded dashboard — progress ring + live timer */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-card {
+  background: #fff;
+  border: 1px solid #E5E7EB;
+}
+
+.dashboard-card h2 {
+  font-size: 20px;
+  color: #3C3C3C;
+  margin-bottom: 12px;
+}
+
+.progress-ring-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.progress-ring-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.progress-ring-hours {
+  font-size: 17px;
+  font-weight: 700;
+  color: #3C3C3C;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-ring-unit {
+  font-size: 12px;
+  color: #6B7280;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.progress-ring-pct {
+  font-size: 13px;
+  color: #E31B54;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.live-timer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.live-timer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.icon-link {
+  background: transparent;
+  border: none;
+  color: #6B7280;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+}
+
+.icon-link:hover {
+  background: #F3F4F6;
+  color: #3C3C3C;
+}
+
+.live-timer-display {
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: #3C3C3C;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-timer-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: #3C3C3C;
+}
+
+.live-timer-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+.live-timer-status-running {
+  background: rgba(227, 27, 84, 0.12);
+  color: #E31B54;
+}
+
+.live-timer-status-paused {
+  background: rgba(217, 119, 6, 0.12);
+  color: #D97706;
+}
+
+.live-timer-project {
+  color: #6B7280;
+  font-size: 14px;
+}
+
+.live-timer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #E5E7EB;
+  color: #3C3C3C;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-outline:hover {
+  background: #F3F4F6;
+}
