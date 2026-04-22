@@ -54,6 +54,7 @@ jobs:
   build-mac:
     name: Build Mac DMG
     runs-on: macos-latest
+    continue-on-error: true
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -101,6 +102,7 @@ jobs:
     needs:
       - build-windows
       - build-mac
+    if: always() && needs.build-windows.result == 'success'
     permissions:
       contents: write
     steps:
@@ -109,9 +111,9 @@ jobs:
         with:
           name: tlu-tracker-windows
           path: artifacts/windows
-
       - name: Download Mac artifact
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: tlu-tracker-mac
           path: artifacts/mac
@@ -130,5 +132,6 @@ jobs:
           files: |
             artifacts/windows/*.exe
             artifacts/mac/*.dmg
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
