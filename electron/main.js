@@ -131,6 +131,7 @@ let currentUserId = null;
 
 let mainWindow;
 let miniTimerWindow;
+let pillWindow;
 let tray;
 let systemIdleCheckInterval;
 let idleWarningShown = false;
@@ -273,6 +274,62 @@ function createMiniTimerWindow() {
   });
 
   return miniTimerWindow;
+}
+
+// Cream Pill mini-timer window (see MINI_TIMER_REDESIGN.md). The pill is
+// 230x40, but the window is sized larger so the box-shadow has room to
+// render without clipping. Transparent + frameless so the rounded pill
+// shape is honoured.
+function createPillWindow() {
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.show();
+    pillWindow.focus();
+    return pillWindow;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth } = primaryDisplay.workAreaSize;
+
+  pillWindow = new BrowserWindow({
+    width: 246,
+    height: 56,
+    x: Math.max(0, Math.floor(screenWidth / 2) - 123),
+    y: 24,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    title: 'TLU Tracker',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-mini-timer.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      sandbox: true,
+    },
+  });
+
+  if (isDev) {
+    pillWindow.loadURL('http://localhost:5173/pill.html');
+  } else {
+    pillWindow.loadFile(path.join(__dirname, '../client/dist/pill.html'));
+  }
+
+  pillWindow.on('close', (e) => {
+    if (!app.isQuitting) {
+      e.preventDefault();
+      pillWindow.hide();
+    }
+  });
+
+  pillWindow.on('closed', () => {
+    pillWindow = null;
+  });
+
+  return pillWindow;
 }
 
 // ============================================================================
@@ -511,6 +568,10 @@ function broadcastTimerState() {
     miniTimerWindow.webContents.send('timer:state-changed', state);
   }
 
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.webContents.send('timer:state-changed', state);
+  }
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('timer:state-changed', state);
   }
@@ -523,6 +584,10 @@ function broadcastToAllWindows(channel, data) {
 
   if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
     miniTimerWindow.webContents.send(channel, data);
+  }
+
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.webContents.send(channel, data);
   }
 }
 
@@ -751,10 +816,15 @@ ipcMain.handle('session:setCurrentUser', (_event, userId) => {
 
   // Push fresh projects + cleared timer state to the mini timer so the
   // dropdown flips immediately rather than waiting for a reload.
+  const projects = fetchProjectsForUser(currentUserId);
+  const state = getTimerState();
   if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
-    const projects = fetchProjectsForUser(currentUserId);
     miniTimerWindow.webContents.send('projects:changed', projects);
-    miniTimerWindow.webContents.send('timer:state-changed', getTimerState());
+    miniTimerWindow.webContents.send('timer:state-changed', state);
+  }
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.webContents.send('projects:changed', projects);
+    pillWindow.webContents.send('timer:state-changed', state);
   }
   return { success: true };
 });
@@ -799,6 +869,65 @@ ipcMain.handle('app:hideMiniTimer', (event) => {
 
 ipcMain.handle('app:showMiniTimer', (event) => {
   showWidget();
+});
+
+// Switch from the full mini timer to the Cream Pill (see
+// MINI_TIMER_REDESIGN.md). Hides the full window and shows the pill.
+ipcMain.handle('app:enterPillMode', () => {
+  if (!pillWindow || pillWindow.isDestroyed()) {
+    createPillWindow();
+  } else {
+    pillWindow.show();
+    pillWindow.focus();
+  }
+  if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+    miniTimerWindow.hide();
+  }
+  // Push the latest state so the pill renders correctly on first paint.
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.webContents.send('timer:state-changed', getTimerState());
+  }
+});
+
+// Pill -> full window. Hide the pill, restore the full mini timer.
+ipcMain.handle('app:exitPillMode', () => {
+  if (!miniTimerWindow || miniTimerWindow.isDestroyed()) {
+    createMiniTimerWindow();
+  } else {
+    if (miniTimerWindow.isMinimized()) miniTimerWindow.restore();
+    miniTimerWindow.show();
+    miniTimerWindow.focus();
+  }
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.hide();
+  }
+});
+
+// Stop pressed on the pill. Expand to the full mini timer and ask it to
+// open the work-details modal so the user can capture notes — the pill
+// is too small to host the modal.
+ipcMain.handle('app:requestStopFromPill', () => {
+  if (!miniTimerWindow || miniTimerWindow.isDestroyed()) {
+    createMiniTimerWindow();
+  } else {
+    if (miniTimerWindow.isMinimized()) miniTimerWindow.restore();
+    miniTimerWindow.show();
+    miniTimerWindow.focus();
+  }
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.hide();
+  }
+  // The full window listens for this and triggers WorkDetailsModal.
+  const send = () => {
+    if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+      miniTimerWindow.webContents.send('timer:request-stop');
+    }
+  };
+  if (miniTimerWindow.webContents.isLoading()) {
+    miniTimerWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
 });
 
 // ============================================================================

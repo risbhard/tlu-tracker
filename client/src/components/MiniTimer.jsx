@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Pause, Square, Maximize2 } from 'lucide-react';
+import { Play, Pause, Square, Maximize2, Minimize2 } from 'lucide-react';
 import '../mini-timer.css';
 import WorkDetailsModal from './WorkDetailsModal';
 
@@ -142,6 +142,16 @@ export default function MiniTimer() {
     };
   }, [userId, loadHoursToday]);
 
+  // Pill-initiated stop: open the notes modal here.
+  useEffect(() => {
+    const off = window.electronAPI?.app?.onRequestStop?.(() => {
+      setShowDetailsModal(true);
+    });
+    return () => {
+      if (typeof off === 'function') off();
+    };
+  }, []);
+
   // Tick display every second while running
   useEffect(() => {
     if (!timerState.running) return;
@@ -227,6 +237,14 @@ export default function MiniTimer() {
             {statusLabel}
           </span>
           <div className="title-bar-right">
+            <button
+              className="title-btn mini-timer-maximize-btn"
+              onClick={() => window.electronAPI?.app?.enterPillMode?.()}
+              title="Minimize to pill"
+              aria-label="Minimize to pill"
+            >
+              <Minimize2 size={14} />
+            </button>
             <button
               className="title-btn mini-timer-maximize-btn"
               onClick={() => {

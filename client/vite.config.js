@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         'mini-timer': resolve(__dirname, 'mini-timer.html'),
+        pill: resolve(__dirname, 'pill.html'),
       },
       output: {
         entryFileNames: '[name].js',

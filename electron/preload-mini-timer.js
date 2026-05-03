@@ -49,6 +49,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openMainWindow: () => ipcRenderer.invoke('app:openMainWindow'),
     minimizeMiniTimer: () => ipcRenderer.invoke('app:minimizeMiniTimer'),
     hideMiniTimer: () => ipcRenderer.invoke('app:hideMiniTimer'),
+    enterPillMode: () => ipcRenderer.invoke('app:enterPillMode'),
+    exitPillMode: () => ipcRenderer.invoke('app:exitPillMode'),
+    requestStopFromPill: () => ipcRenderer.invoke('app:requestStopFromPill'),
+    onRequestStop: (callback) => {
+      const listener = () => callback();
+      ipcRenderer.on('timer:request-stop', listener);
+      return () => ipcRenderer.removeListener('timer:request-stop', listener);
+    },
   },
 
   // Window IPC
