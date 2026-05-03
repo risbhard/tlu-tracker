@@ -197,26 +197,19 @@ app.delete('/api/logs/:id', (req, res) => {
 app.get('/api/users/:id/projects', (req, res) => {
   try {
     const projects = db.prepare(`
-      SELECT p.* FROM projects p
+      SELECT
+        p.*,
+        COALESCE((
+          SELECT SUM(hl.hours)
+          FROM hour_logs hl
+          WHERE hl.project_id = p.id
+        ), 0) AS hours_logged
+      FROM projects p
       WHERE p.user_id = ?
       ORDER BY p.archived ASC, p.created_at DESC
     `).all(req.params.id);
 
-    // Calculate hours_logged for each project by summing logs
-    const enrichedProjects = projects.map(project => {
-      const logResult = db.prepare(`
-        SELECT COALESCE(SUM(hours), 0) AS hours_logged
-        FROM hour_logs
-        WHERE user_id = ?
-      `).get(req.params.id);
-      
-      return {
-        ...project,
-        hours_logged: logResult.hours_logged || 0
-      };
-    });
-
-    res.json(enrichedProjects);
+    res.json(projects);
   } catch (err) {
     console.error('Error fetching projects:', err);
     res.status(500).json({ error: 'Failed to fetch projects' });
