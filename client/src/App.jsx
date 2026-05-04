@@ -1,14 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import HourLog from './components/HourLog';
 import ProjectSetup from './components/ProjectSetup';
+import ThemeToggle from './components/ThemeToggle';
 import './App.css';
+
+const THEME_STORAGE_KEY = 'tlu-tracker-theme';
+
+function getInitialTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // ignore
+  }
+  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
 
 function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('dashboard');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [theme, setTheme] = useState(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -48,7 +76,7 @@ function App() {
   };
 
   if (!user) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} theme={theme} onToggleTheme={toggleTheme} />;
   }
 
   return (
@@ -64,6 +92,7 @@ function App() {
               Mini Timer
             </button>
           )}
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <span className="user-name">{user.name}</span>
           <button className="btn btn-outline" onClick={handleLogout}>Log Out</button>
         </div>

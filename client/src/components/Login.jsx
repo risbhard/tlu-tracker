@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { api } from '../api';
+import ThemeToggle from './ThemeToggle';
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, theme, onToggleTheme }) {
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
@@ -94,26 +95,26 @@ export default function Login({ onLogin }) {
   if (showSetPinModal) {
     return (
       <div className="login-container">
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="modal-content" style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '14px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
-            <h3 style={{ color: '#3C3C3C', marginBottom: '1rem' }}>Would you like to set a 4-digit PIN?</h3>
-            <p style={{ color: '#666', marginBottom: '1.5rem' }}>This adds a layer of privacy to your hour logs.</p>
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'var(--color-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="modal-content" style={{ backgroundColor: 'var(--color-panel)', color: 'var(--color-text)', padding: '2rem', borderRadius: '14px', maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: '0 10px 30px var(--color-shadow)' }}>
+            <h3 style={{ color: 'var(--color-charcoal)', marginBottom: '1rem' }}>Would you like to set a 4-digit PIN?</h3>
+            <p style={{ color: 'var(--color-text-soft)', marginBottom: '1.5rem' }}>This adds a layer of privacy to your hour logs.</p>
             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#3C3C3C' }}>PIN (4+ digits)</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--color-charcoal)' }}>PIN (4+ digits)</label>
               <input
                 type="password"
                 value={newPin}
                 onChange={(e) => setNewPin(e.target.value)}
                 placeholder="Enter PIN"
                 inputMode="numeric"
-                style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px' }}
+                style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--color-border-strong)', borderRadius: '8px', fontSize: '14px', background: 'var(--color-panel)', color: 'var(--color-text)' }}
               />
             </div>
             <div className="modal-actions" style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <button className="btn btn-secondary" onClick={handleSkipPin} style={{ backgroundColor: '#666', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>Skip</button>
-              <button className="btn btn-primary" onClick={handleSetPin} style={{ backgroundColor: '#E31B54', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>Set PIN</button>
+              <button className="btn btn-secondary" onClick={handleSkipPin} style={{ backgroundColor: 'var(--color-text-soft)', color: '#fff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>Skip</button>
+              <button className="btn btn-primary" onClick={handleSetPin} style={{ backgroundColor: 'var(--color-brand)', color: '#fff', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>Set PIN</button>
             </div>
-            {error && <p className="error" style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
+            {error && <p className="error" style={{ color: '#e74c3c', marginTop: '1rem' }}>{error}</p>}
           </div>
         </div>
       </div>
@@ -122,6 +123,11 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="login-container">
+      {onToggleTheme && (
+        <div className="login-theme-toggle">
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        </div>
+      )}
       <div
         className="left-panel"
         style={{
@@ -172,7 +178,7 @@ export default function Login({ onLogin }) {
             <>
               <div className="form-group">
                 <label>Name</label>
-                <input value={selectedUser.name} disabled style={{ backgroundColor: '#f5f5f5' }} />
+                <input value={selectedUser.name} disabled style={{ backgroundColor: 'var(--color-input-disabled-bg)' }} />
               </div>
               <div className="form-group">
                 <label>PIN</label>
