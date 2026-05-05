@@ -158,11 +158,20 @@ export default function MiniTimerPill() {
     }
   }, []);
 
-  // Bootstrap user + initial timer state
+  // Bootstrap user + initial timer state. Source of truth for the active
+  // user is the Electron main process — query it on mount and listen for
+  // login/logout pushes. localStorage isn't reliable across BrowserWindows
+  // under file:// and may be empty if the pill mounts before login.
   useEffect(() => {
-    const stored = localStorage.getItem('userId');
-    const uid = stored ? parseInt(stored, 10) : 1;
-    setUserId(uid);
+    let cancelled = false;
+
+    window.electronAPI?.session?.getCurrentUser?.().then((uid) => {
+      if (!cancelled) setUserId(uid ?? null);
+    });
+
+    const offUser = window.electronAPI?.session?.onUserChanged?.((uid) => {
+      setUserId(uid ?? null);
+    });
 
     window.electronAPI?.timer?.getState?.().then((state) => {
       if (state) {
@@ -177,6 +186,8 @@ export default function MiniTimerPill() {
     });
 
     return () => {
+      cancelled = true;
+      if (typeof offUser === 'function') offUser();
       if (typeof offState === 'function') offState();
     };
   }, []);

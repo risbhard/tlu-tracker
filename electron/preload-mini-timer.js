@@ -67,6 +67,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Session IPC
   session: {
     setCurrentUser: (userId) => ipcRenderer.invoke('session:setCurrentUser', userId),
+    getCurrentUser: () => ipcRenderer.invoke('session:getCurrentUser'),
+    onUserChanged: (callback) => {
+      const listener = (_event, userId) => callback(userId);
+      ipcRenderer.on('session:user-changed', listener);
+      return () => ipcRenderer.removeListener('session:user-changed', listener);
+    },
   },
 });
 

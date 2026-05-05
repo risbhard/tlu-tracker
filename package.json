@@ -5,7 +5,7 @@
   "name": "Rishi Bhardwaj",
   "email": "rbhardwaj@okanagan.bc.ca"
 },
-  "description": "Tropical Livestock Unit (TLU) Tracker",
+  "description": "Teaching Load Unit (TLU) Tracker",
   "main": "electron/main.js",
   "homepage": "./",
   "scripts": {

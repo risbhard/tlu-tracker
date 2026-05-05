@@ -819,15 +819,19 @@ ipcMain.handle('session:setCurrentUser', (_event, userId) => {
   const projects = fetchProjectsForUser(currentUserId);
   const state = getTimerState();
   if (miniTimerWindow && !miniTimerWindow.isDestroyed()) {
+    miniTimerWindow.webContents.send('session:user-changed', currentUserId);
     miniTimerWindow.webContents.send('projects:changed', projects);
     miniTimerWindow.webContents.send('timer:state-changed', state);
   }
   if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.webContents.send('session:user-changed', currentUserId);
     pillWindow.webContents.send('projects:changed', projects);
     pillWindow.webContents.send('timer:state-changed', state);
   }
   return { success: true };
 });
+
+ipcMain.handle('session:getCurrentUser', () => currentUserId);
 
 ipcMain.handle('window:openDashboard', () => {
   if (mainWindow && !mainWindow.isDestroyed()) {

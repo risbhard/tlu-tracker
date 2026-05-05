@@ -80,15 +80,22 @@ export default function MiniTimer() {
     }
   }, []);
 
-  // Initialize user + timer state listener
+  // Initialize user + timer state listener. The active user is owned by the
+  // Electron main process (currentUserId), so query it via IPC and subscribe
+  // to login/logout pushes rather than reading localStorage — different
+  // BrowserWindows under file:// don't reliably share localStorage, and the
+  // mini timer can mount before login.
   useEffect(() => {
-    const storedUserId = localStorage.getItem('userId');
-    if (storedUserId) {
-      setUserId(parseInt(storedUserId, 10));
-    } else {
-      console.warn('No user ID found. Mini timer may not work properly.');
-      setUserId(1);
-    }
+    let cancelled = false;
+
+    window.electronAPI?.session?.getCurrentUser?.().then((uid) => {
+      if (!cancelled) setUserId(uid ?? null);
+    });
+
+    const offUser = window.electronAPI?.session?.onUserChanged?.((uid) => {
+      setUserId(uid ?? null);
+      setSelectedProjectId('');
+    });
 
     const offState = window.electronAPI?.timer?.onStateChanged?.((state) => {
       setTimerState(state);
@@ -96,6 +103,8 @@ export default function MiniTimer() {
     });
 
     return () => {
+      cancelled = true;
+      if (typeof offUser === 'function') offUser();
       if (typeof offState === 'function') offState();
     };
   }, []);
