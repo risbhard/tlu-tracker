@@ -124,8 +124,11 @@ app.get('/api/users/:id/dashboard', (req, res) => {
   `).all(req.params.id);
 
   const recentLogs = db.prepare(`
-    SELECT * FROM hour_logs WHERE user_id = ?
-    ORDER BY date DESC, created_at DESC LIMIT 5
+    SELECT hl.*, p.description AS project_description
+    FROM hour_logs hl
+    LEFT JOIN projects p ON hl.project_id = p.id
+    WHERE hl.user_id = ?
+    ORDER BY hl.date DESC, hl.created_at DESC LIMIT 5
   `).all(req.params.id);
 
   res.json({
