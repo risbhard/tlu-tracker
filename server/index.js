@@ -6,7 +6,7 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const HOURS_PER_TLU = 70;
+const HOURS_PER_TLU = 128;
 
 const CATEGORIES = [
   'Research',
