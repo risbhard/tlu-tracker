@@ -155,12 +155,6 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
     setOpenTooltip(openTooltip === name ? null : name);
   };
 
-  const getProjectName = (projectId) => {
-    // Placeholder - in a real app, you'd fetch project details
-    // For now, we'll extract from data by searching through categories/projects
-    return `Project ${projectId}`;
-  };
-
   if (!data) return <div className="panel"><p>Loading...</p></div>;
 
   const pct = data.total_allowed > 0 ? Math.min((data.total_used / data.total_allowed) * 100, 100) : 0;
@@ -369,7 +363,7 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
             {data.recent_logs.map((log) => (
               <li key={log.id}>
                 <span className="recent-date">{log.date}</span>
-                <span className="recent-cat">{log.category}{log.notes ? ` — ${log.notes}` : ''}</span>
+                <span className="recent-cat">{log.project_description || 'No project'}{log.notes ? ` — ${log.notes}` : ''}</span>
                 <span className="recent-hours">{log.hours}h</span>
               </li>
             ))}
