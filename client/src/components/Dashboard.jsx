@@ -57,6 +57,7 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
   const [loadingButtons, setLoadingButtons] = useState({});
   const [timerState, setTimerState] = useState(null);
   const [liveElapsed, setLiveElapsed] = useState(0);
+  const [activeProjects, setActiveProjects] = useState([]);
   const tooltipRef = useRef(null);
 
   // Mirror the mini timer's elapsed time — tick once per second while running
@@ -69,6 +70,19 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
 
   useEffect(() => {
     api.getDashboard(user.id).then(setData).catch(console.error);
+  }, [user.id]);
+
+  useEffect(() => {
+    const fetchActiveProjects = () => {
+      window.electronAPI?.projects?.getActive(user.id)
+        ?.then(setActiveProjects)
+        ?.catch(console.error);
+    };
+    fetchActiveProjects();
+    const offProjects = window.electronAPI?.projects?.onChanged?.(fetchActiveProjects);
+    return () => {
+      if (typeof offProjects === 'function') offProjects();
+    };
   }, [user.id]);
 
   // Listen for time entry creation and timer state changes
@@ -168,7 +182,8 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
     : 'Idle';
   const liveProjectName =
     timerState?.projectId
-      ? data.by_project.find((p) => p.id === timerState.projectId)?.description ||
+      ? activeProjects.find((p) => p.id === timerState.projectId)?.description ||
+        data.by_project.find((p) => p.id === timerState.projectId)?.description ||
         `Project ${timerState.projectId}`
       : null;
 
