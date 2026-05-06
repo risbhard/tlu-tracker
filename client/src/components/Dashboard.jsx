@@ -258,7 +258,7 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
           </div>
           {openTooltip === 'hours-used' && (
             <div id="tooltip-hours-used" role="tooltip" className="tooltip">
-              Total hours you've logged across all projects for this TLU release period.
+              Total hours you've logged across all projects, summed across all your TLU releases.
             </div>
           )}
         </div>
@@ -300,7 +300,7 @@ export default function Dashboard({ user, setUser, onDataChange, onNavigate }) {
           </div>
           {openTooltip === 'total-allowed' && (
             <div id="tooltip-total-allowed" role="tooltip" className="tooltip">
-              Your total hour allocation for this release.
+              Your total hour allocation, summed across all your TLU releases (TLU count × hours per TLU).
             </div>
           )}
         </div>
