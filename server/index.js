@@ -104,9 +104,6 @@ app.get('/api/users/:id/dashboard', (req, res) => {
   const user = db.prepare('SELECT id, name, tlu_count, total_hours_allocation FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  // Use total_hours_allocation if set, otherwise fall back to tlu_count * HOURS_PER_TLU
-  const totalAllowed = user.total_hours_allocation || (user.tlu_count * HOURS_PER_TLU);
-
   const stats = db.prepare(`
     SELECT
       COALESCE(SUM(hours), 0) AS total_hours,
@@ -123,6 +120,17 @@ app.get('/api/users/:id/dashboard', (req, res) => {
     ORDER BY hours DESC
   `).all(req.params.id);
 
+  const projectTotals = db.prepare(`
+    SELECT
+      COALESCE(SUM(total_hours), 0) AS total_allowed_hours,
+      COALESCE(SUM(tlu_count), 0) AS total_allowed_tlus,
+      COUNT(*) AS active_project_count
+    FROM projects
+    WHERE user_id = ? AND archived = 0
+  `).get(req.params.id);
+
+  const totalAllowed = projectTotals.total_allowed_hours;
+
   const recentLogs = db.prepare(`
     SELECT hl.*, p.description AS project_description
     FROM hour_logs hl
@@ -135,6 +143,8 @@ app.get('/api/users/:id/dashboard', (req, res) => {
     user,
     hours_per_tlu: HOURS_PER_TLU,
     total_allowed: totalAllowed,
+    total_tlus: projectTotals.total_allowed_tlus,
+    active_project_count: projectTotals.active_project_count,
     total_used: stats.total_hours,
     remaining: totalAllowed - stats.total_hours,
     total_entries: stats.total_entries,
@@ -280,15 +290,20 @@ app.get('/api/users/:id/export/csv', (req, res) => {
     WHERE hl.user_id = ? ORDER BY hl.date ASC
   `).all(req.params.id);
 
+  const projectTotals = db.prepare(`
+    SELECT
+      COALESCE(SUM(total_hours), 0) AS total_allowed_hours,
+      COALESCE(SUM(tlu_count), 0) AS total_allowed_tlus,
+      COUNT(*) AS active_project_count
+    FROM projects
+    WHERE user_id = ? AND archived = 0
+  `).get(req.params.id);
+
   const totalUsed = logs.reduce((sum, l) => sum + l.hours, 0);
-  const totalAllowed = user.total_hours_allocation || (user.tlu_count * HOURS_PER_TLU);
+  const totalAllowed = projectTotals.total_allowed_hours;
 
   let csv = `TLU Hour Report - ${user.name}\n`;
-  if (user.total_hours_allocation) {
-    csv += `Total Hour Allocation: ${totalAllowed}h | Used: ${totalUsed}h | Remaining: ${totalAllowed - totalUsed}h\n\n`;
-  } else {
-    csv += `TLU Releases: ${user.tlu_count} | Total Allowed: ${totalAllowed}h | Used: ${totalUsed}h | Remaining: ${totalAllowed - totalUsed}h\n\n`;
-  }
+  csv += `TLU Releases: ${projectTotals.total_allowed_tlus} | Total Allowed: ${totalAllowed}h | Used: ${totalUsed}h | Remaining: ${totalAllowed - totalUsed}h\n\n`;
   csv += 'Date,Hours,Project,Notes\n';
   for (const log of logs) {
     const notes = (log.notes || '').replace(/"/g, '""');
@@ -312,8 +327,17 @@ app.get('/api/users/:id/export/pdf', (req, res) => {
     WHERE hl.user_id = ? ORDER BY hl.date ASC
   `).all(req.params.id);
 
+  const projectTotals = db.prepare(`
+    SELECT
+      COALESCE(SUM(total_hours), 0) AS total_allowed_hours,
+      COALESCE(SUM(tlu_count), 0) AS total_allowed_tlus,
+      COUNT(*) AS active_project_count
+    FROM projects
+    WHERE user_id = ? AND archived = 0
+  `).get(req.params.id);
+
   const totalUsed = logs.reduce((sum, l) => sum + l.hours, 0);
-  const totalAllowed = user.total_hours_allocation || (user.tlu_count * HOURS_PER_TLU);
+  const totalAllowed = projectTotals.total_allowed_hours;
 
   const byProject = {};
   for (const log of logs) {
@@ -335,12 +359,8 @@ app.get('/api/users/:id/export/pdf', (req, res) => {
 
   // Summary
   doc.fontSize(12);
-  if (user.total_hours_allocation) {
-    doc.text(`Total Hour Allocation: ${totalAllowed} hours`);
-  } else {
-    doc.text(`TLU Releases: ${user.tlu_count}`);
-    doc.text(`Total Allowed: ${totalAllowed} hours`);
-  }
+  doc.text(`TLU Releases: ${projectTotals.total_allowed_tlus}`);
+  doc.text(`Total Allowed: ${totalAllowed} hours`);
   doc.text(`Hours Used: ${totalUsed} hours`);
   doc.text(`Remaining: ${totalAllowed - totalUsed} hours`);
   doc.moveDown(1);
