@@ -1,10 +1,10 @@
 {
   "name": "tlu-tracker",
-  "version": "1.0.0",
+  "version": "0.3.1",
   "author": {
-  "name": "Rishi Bhardwaj",
-  "email": "rbhardwaj@okanagan.bc.ca"
-},
+    "name": "Rishi Bhardwaj",
+    "email": "rbhardwaj@okanagan.bc.ca"
+  },
   "description": "Teaching Load Unit (TLU) Tracker",
   "main": "electron/main.js",
   "homepage": "./",
@@ -16,8 +16,8 @@
     "electron": "cd client && npm run build && cd .. && electron .",
     "electron-dev": "cd client && npm run build && cd .. && NODE_ENV=development electron .",
     "electron-build:win": "cd client && npm run build && cd .. && npx electron-builder --win portable --publish=never",
-"electron-build:mac": "cd client && npm run build && cd .. && npx electron-builder --mac dmg --publish=never",
-"electron-build": "cd client && npm run build && cd .. && npx electron-builder --publish=never"
+    "electron-build:mac": "cd client && npm run build && cd .. && npx electron-builder --mac dmg --publish=never",
+    "electron-build": "cd client && npm run build && cd .. && npx electron-builder --publish=never"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
@@ -51,14 +51,20 @@
       {
         "from": "client/public/Images",
         "to": "Images",
-        "filter": ["tray-icon*.ico", "tray-icon*.png"]
+        "filter": [
+          "tray-icon*.ico",
+          "tray-icon*.png"
+        ]
       }
     ],
     "directories": {
       "buildResources": "assets"
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "assets/icon.ico"
     },
     "nsis": {
@@ -66,10 +72,16 @@
       "allowToChangeInstallationDirectory": true
     },
     "mac": {
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   }
 }
