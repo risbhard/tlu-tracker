@@ -1,10 +1,8 @@
 name: Release Build
-
 on:
   push:
     tags:
       - 'v*'
-
 jobs:
   build-windows:
     name: Build Windows Installer
@@ -12,15 +10,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install Python setuptools (distutils shim)
         run: python -m pip install setuptools
-
       - name: Diagnose environment
         shell: bash
         run: |
@@ -29,44 +24,36 @@ jobs:
           ls -la
           echo "--- client folder ---"
           ls -la client || echo "no client folder"
-
       - name: Install root dependencies
         run: npm install
-
       - name: Rebuild native modules
         run: npm rebuild better-sqlite3 --update-binary
-
       - name: Install client dependencies and build UI
         run: |
           cd client
           npm install
           npm run build
-
       - name: Build Windows portable installer
         run: npm run electron-build:win
-
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: tlu-tracker-windows
           path: dist/*.exe
-
   build-mac:
     name: Build Mac DMG
     runs-on: macos-latest
+    if: false
     continue-on-error: true
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install Python setuptools (distutils shim)
         run: python -m pip install setuptools
-
       - name: Diagnose environment
         run: |
           node --version
@@ -74,35 +61,28 @@ jobs:
           ls -la
           echo "--- client folder ---"
           ls -la client || echo "no client folder"
-
       - name: Install root dependencies
         run: npm install
-
       - name: Rebuild native modules
         run: npm rebuild better-sqlite3 --update-binary
-
       - name: Install client dependencies and build UI
         run: |
           cd client
           npm install
           npm run build
-
       - name: Build Mac DMG
         run: npm run electron-build:mac
-
       - name: Upload Mac artifact
         uses: actions/upload-artifact@v4
         with:
           name: tlu-tracker-mac
           path: dist/*.dmg
-
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs:
       - build-windows
-      - build-mac
-    if: always() && needs.build-windows.result == 'success'
+    if: needs.build-windows.result == 'success'
     permissions:
       contents: write
     steps:
@@ -111,13 +91,6 @@ jobs:
         with:
           name: tlu-tracker-windows
           path: artifacts/windows
-      - name: Download Mac artifact
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: tlu-tracker-mac
-          path: artifacts/mac
-
       - name: Create release and upload assets
         uses: softprops/action-gh-release@v2
         with:
@@ -125,13 +98,10 @@ jobs:
           name: Release ${{ github.ref_name }}
           body: |
             TLU Tracker ${{ github.ref_name }}
-
-            Download the appropriate installer for your platform:
+            Download the Windows installer below.
             - **Windows**: `.exe` (portable, no admin rights needed)
-            - **Mac**: `.dmg`
           files: |
             artifacts/windows/*.exe
-            artifacts/mac/*.dmg
           fail_on_unmatched_files: false
           draft: false
           prerelease: false
