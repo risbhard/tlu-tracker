@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Projects IPC
   projects: {
+    getActive: (userId) => ipcRenderer.invoke('projects:getActive', userId),
     notifyChanged: () => ipcRenderer.invoke('projects:notifyChanged'),
     onChanged: (callback) => {
       const listener = (_event, data) => callback(data);

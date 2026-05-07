@@ -56,7 +56,7 @@ export default function MiniTimer() {
     if (!uid) return;
     try {
       setLoading(true);
-      const activeProjects = await window.electronAPI?.projects?.getActive(uid);
+      const activeProjects = await window.electronAPI?.projects?.getActive?.(uid);
       setProjects(activeProjects || []);
     } catch (error) {
       console.error('Failed to load projects:', error);
