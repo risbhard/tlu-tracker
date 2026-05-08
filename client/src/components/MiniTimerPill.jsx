@@ -80,6 +80,18 @@ function ProjectChip({ value, options, onChange, locked }) {
     };
   }, [open]);
 
+  // Pill BrowserWindow is sized just-tall-enough for the capsule, so the
+  // dropdown menu would render below the window edge and get clipped.
+  // Ask main to grow the window while the menu is open and shrink it back
+  // on close.
+  useEffect(() => {
+    if (open) {
+      window.electronAPI?.app?.expandForDropdown?.();
+    } else {
+      window.electronAPI?.app?.collapseAfterDropdown?.();
+    }
+  }, [open]);
+
   const label = value ? value.description : 'Pick project';
 
   return (
@@ -337,16 +349,21 @@ export default function MiniTimerPill() {
         >
           <Icon.Stop />
         </button>
-        <button
-          type="button"
-          className="mt-btn"
-          onClick={handleExpand}
-          aria-label="Expand"
-          title="Open full timer"
-        >
-          <Icon.Expand />
-        </button>
       </div>
+
+      {/* Expand button sits outside .mt-controls so it stays visible at all
+          times — without it, the only way back to the full timer is the
+          system tray icon. */}
+      <button
+        type="button"
+        className="mt-btn mt-btn--expand"
+        onClick={handleExpand}
+        aria-label="Open full timer"
+        title="Open full timer"
+        style={{ WebkitAppRegion: 'no-drag' }}
+      >
+        <Icon.Expand />
+      </button>
     </div>
   );
 }

@@ -195,3 +195,19 @@ html, body {
   outline: 2px solid var(--mt-accent);
   outline-offset: 2px;
 }
+
+/* Always-visible expand-back button. Sits outside .mt-controls so it
+   doesn't get hidden by the hover-reveal opacity rule. Slightly smaller
+   and dimmer than the hover-revealed buttons so it doesn't compete
+   visually with the primary action. */
+.mt-btn--expand {
+  width: 24px;
+  height: 24px;
+  opacity: 0.55;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+.mt-btn--expand:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(43, 29, 24, 0.05);
+}

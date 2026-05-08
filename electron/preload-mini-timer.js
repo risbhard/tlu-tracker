@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     enterPillMode: () => ipcRenderer.invoke('app:enterPillMode'),
     exitPillMode: () => ipcRenderer.invoke('app:exitPillMode'),
     requestStopFromPill: () => ipcRenderer.invoke('app:requestStopFromPill'),
+    expandForDropdown: () => ipcRenderer.invoke('app:expandForDropdown'),
+    collapseAfterDropdown: () => ipcRenderer.invoke('app:collapseAfterDropdown'),
     onRequestStop: (callback) => {
       const listener = () => callback();
       ipcRenderer.on('timer:request-stop', listener);

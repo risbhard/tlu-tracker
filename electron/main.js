@@ -907,6 +907,26 @@ ipcMain.handle('app:exitPillMode', () => {
   }
 });
 
+// Grow the pill window vertically so the project dropdown menu has room
+// to render — the pill is normally just tall enough for the capsule
+// itself, so a custom dropdown would be clipped by the BrowserWindow
+// edge. The renderer calls these on dropdown open/close.
+ipcMain.handle('app:expandForDropdown', () => {
+  if (!pillWindow || pillWindow.isDestroyed()) return { success: false };
+  const [w, h] = pillWindow.getSize();
+  if (!pillWindow._originalHeight) pillWindow._originalHeight = h;
+  pillWindow.setSize(w, Math.max(h, 320));
+  return { success: true };
+});
+
+ipcMain.handle('app:collapseAfterDropdown', () => {
+  if (!pillWindow || pillWindow.isDestroyed()) return { success: false };
+  const [w] = pillWindow.getSize();
+  const restoreHeight = pillWindow._originalHeight || 56;
+  pillWindow.setSize(w, restoreHeight);
+  return { success: true };
+});
+
 // Stop pressed on the pill. Expand to the full mini timer and ask it to
 // open the work-details modal so the user can capture notes — the pill
 // is too small to host the modal.
