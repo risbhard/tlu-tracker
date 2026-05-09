@@ -58,6 +58,20 @@ const Icon = {
       <path d="M6 9l6 6 6-6" />
     </svg>
   ),
+  Close: ({ size = 8 }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  ),
 };
 
 function ProjectChip({ value, options, onChange, locked }) {
@@ -296,6 +310,27 @@ export default function MiniTimerPill() {
     }
   };
 
+  // Close badge: hide pill + surface main window. Does NOT stop the
+  // timer — that protects users from accidental clicks while leaving
+  // them an obvious place (the main window) to quit deliberately.
+  const handleClose = async (e) => {
+    e.stopPropagation();
+    try {
+      await window.electronAPI?.pill?.closeAndShowMain?.();
+    } catch (err) {
+      console.error('[pill] close failed:', err);
+    }
+  };
+
+  const handleContextMenu = async (e) => {
+    e.preventDefault();
+    try {
+      await window.electronAPI?.pill?.showContextMenu?.(e.clientX, e.clientY);
+    } catch (err) {
+      console.error('[pill] context menu failed:', err);
+    }
+  };
+
   const primaryAction =
     status === 'running' ? handlePause : status === 'paused' ? handleResume : handleStart;
   const primaryAriaLabel =
@@ -307,8 +342,20 @@ export default function MiniTimerPill() {
       className="mt-pill"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onContextMenu={handleContextMenu}
       style={{ WebkitAppRegion: 'drag' }}
     >
+      <button
+        type="button"
+        className="mt-close-badge"
+        onClick={handleClose}
+        aria-label="Close mini timer"
+        title="Hide pill — opens main window"
+        style={{ WebkitAppRegion: 'no-drag' }}
+      >
+        <Icon.Close />
+      </button>
+
       <span className="mt-status-dot" data-status={status} aria-hidden="true" />
 
       <div style={{ WebkitAppRegion: 'no-drag' }}>

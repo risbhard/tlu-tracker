@@ -38,6 +38,7 @@ html, body {
 }
 
 .mt-pill {
+  position: relative;
   width: 230px;
   height: 40px;
   display: flex;
@@ -49,6 +50,36 @@ html, body {
   border-radius: 999px;
   box-shadow: var(--mt-shadow);
   font-family: var(--mt-sans);
+}
+
+/* Close badge: dismiss affordance overlapping the pill's top-right
+   corner (like a tab close button). Reads as a separate element thanks
+   to the cream border that matches the pill background. */
+.mt-close-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #3C3C3C;
+  border: 2px solid #FAF6EC;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  z-index: 10;
+  transition: transform 120ms ease, background 120ms ease;
+}
+.mt-close-badge:hover {
+  background: #2a2a2a;
+  transform: scale(1.05);
+}
+.mt-close-badge:focus-visible {
+  outline: 2px solid var(--mt-accent);
+  outline-offset: 2px;
 }
 
 .mt-status-dot {

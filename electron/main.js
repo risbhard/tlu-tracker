@@ -4,6 +4,7 @@ const {
   ipcMain,
   Menu,
   Tray,
+  dialog,
   powerMonitor,
   screen,
   nativeImage,
@@ -924,6 +925,84 @@ ipcMain.handle('app:collapseAfterDropdown', () => {
   const [w] = pillWindow.getSize();
   const restoreHeight = pillWindow._originalHeight || 56;
   pillWindow.setSize(w, restoreHeight);
+  return { success: true };
+});
+
+// Hide the pill and surface the main window. Used by the close badge on
+// the pill and by the "Show main window" context-menu item. The timer
+// keeps running — this is intentional so an accidental click doesn't
+// stop the user's work.
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+  } else {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+function hidePillAndShowMain() {
+  if (pillWindow && !pillWindow.isDestroyed()) {
+    pillWindow.hide();
+  }
+  showMainWindow();
+}
+
+ipcMain.handle('pill:closeAndShowMain', () => {
+  hidePillAndShowMain();
+  return { success: true };
+});
+
+ipcMain.handle('pill:showContextMenu', async (_event, { x, y } = {}) => {
+  if (!pillWindow || pillWindow.isDestroyed()) return { success: false };
+
+  const template = [
+    {
+      label: 'Show main window',
+      click: () => hidePillAndShowMain(),
+    },
+    {
+      label: 'Hide pill',
+      click: () => {
+        const mainAvailable =
+          mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible();
+        if (mainAvailable) {
+          if (pillWindow && !pillWindow.isDestroyed()) pillWindow.hide();
+        } else {
+          // No other UI would be visible — fall back to surfacing the
+          // main window so the user isn't left with nothing.
+          hidePillAndShowMain();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit TLU Tracker',
+      click: async () => {
+        const { response } = await dialog.showMessageBox(pillWindow, {
+          type: 'question',
+          message: 'Quit TLU Tracker?',
+          detail: 'Your timer will stop.',
+          buttons: ['Cancel', 'Quit'],
+          defaultId: 0,
+          cancelId: 0,
+        });
+        if (response === 1) {
+          app.isQuitting = true;
+          app.quit();
+        }
+      },
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  const popupOpts = { window: pillWindow };
+  if (Number.isFinite(x) && Number.isFinite(y)) {
+    popupOpts.x = Math.round(x);
+    popupOpts.y = Math.round(y);
+  }
+  menu.popup(popupOpts);
   return { success: true };
 });
 

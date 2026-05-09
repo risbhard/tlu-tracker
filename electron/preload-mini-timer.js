@@ -66,6 +66,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openDashboard: () => ipcRenderer.invoke('window:openDashboard'),
   },
 
+  // Pill-specific IPC: close badge + right-click context menu. Lives on
+  // its own namespace so the channel names line up with the handlers in
+  // electron/main.js (`pill:*`).
+  pill: {
+    closeAndShowMain: () => ipcRenderer.invoke('pill:closeAndShowMain'),
+    showContextMenu: (x, y) => ipcRenderer.invoke('pill:showContextMenu', { x, y }),
+  },
+
   // Session IPC
   session: {
     setCurrentUser: (userId) => ipcRenderer.invoke('session:setCurrentUser', userId),
